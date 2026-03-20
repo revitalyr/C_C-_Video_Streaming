@@ -142,12 +142,14 @@ int main() {
         constexpr int kBenchmarkMessages = 1000;
         for (int i = 0; i < kBenchmarkMessages; ++i) {
             main_logger->info("Benchmark message {}", i);
+            main_logger->info(LogFormat("Benchmark message {}"), i);
         }
         
         auto end_time = HighResClock::now();
         auto duration = std::chrono::duration_cast<Microseconds>(end_time - start_time);
         
         main_logger->info("Logged {} messages in {} μs ({} msg/sec)", 
+        main_logger->info(LogFormat("Logged {} messages in {} μs ({} msg/sec)"), 
             kBenchmarkMessages, 
             duration.count(), 
             (kBenchmarkMessages * 1000000.0) / duration.count());

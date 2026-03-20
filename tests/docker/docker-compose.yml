@@ -1,0 +1,143 @@
+version: "3.9"
+
+# ---------------------------------------------------------------
+# Сети
+# ---------------------------------------------------------------
+networks:
+  # «хорошая» сеть — unit-тесты и базовый smoke
+  clean_net:
+    driver: bridge
+
+  # «плохая» сеть — jitter/loss эмулируется через tc netem
+  # Параметры применяются скриптом init-netem.sh на хосте
+  lossy_net:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: lossy0
+
+# ---------------------------------------------------------------
+# Сервисы
+# ---------------------------------------------------------------
+services:
+
+  # --- 1. Сборка (запускается один раз, потом кэш) --------------
+  builder:
+    build:
+      context: .
+      target: builder
+    image: videostreaming-builder:latest
+    # только собираем, не запускаем
+    command: echo "Build complete"
+
+  # --- 2. Unit-тесты (Catch2) ------------------------------------
+  unit-tests:
+    build:
+      context: .
+      target: test-runner
+    image: videostreaming-tests:latest
+    depends_on:
+      builder:
+        condition: service_completed_successfully
+    networks:
+      - clean_net
+    cap_add:
+      - NET_ADMIN          # нужен для tc netem внутри контейнера
+    environment:
+      - TEST_MODE=unit
+      - RTP_HOST=rtp-source
+      - RTP_PORT=5004
+      - RTCP_PORT=5005
+    volumes:
+      - test-results:/app/results
+    command: ["/app/tests/scripts/run_unit.sh"]
+
+  # --- 3. RTP-источник (ffmpeg) ----------------------------------
+  rtp-source:
+    image: jrottenberg/ffmpeg:6.1-ubuntu
+    networks:
+      lossy_net:
+        aliases: [rtp-source]
+    # тестовый видеосигнал 640x480 30fps, low-latency H.264
+    command: >
+      -re
+      -f lavfi -i testsrc=size=640x480:rate=30
+      -f lavfi -i sine=frequency=1000:sample_rate=44100
+      -vcodec libx264
+      -preset ultrafast
+      -tune zerolatency
+      -b:v 1000k
+      -g 30
+      -acodec aac
+      -f rtp_mpegts
+      rtp://receiver:5004
+    restart: on-failure
+
+  # --- 4. Приёмник (тестируемое приложение) ----------------------
+  receiver:
+    build:
+      context: .
+      target: test-runner
+    depends_on:
+      - rtp-source
+    networks:
+      lossy_net:
+        aliases: [receiver]
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "5004:5004/udp"
+      - "5005:5005/udp"
+    environment:
+      - TEST_MODE=e2e
+      - RTP_PORT=5004
+      - RTCP_PORT=5005
+    volumes:
+      - test-results:/app/results
+      - pcap-dumps:/app/pcap
+    command: ["/app/tests/scripts/run_e2e.sh"]
+
+  # --- 5. Анализатор RTCP (tshark + Python) ----------------------
+  analyzer:
+    build:
+      context: .
+      target: test-runner
+    depends_on:
+      - receiver
+    networks:
+      - lossy_net
+    volumes:
+      - pcap-dumps:/app/pcap
+      - test-results:/app/results
+    command: ["/app/tests/scripts/analyze_rtcp.sh"]
+
+  # --- 6. Stress-тест: IoT сценарии (слабый CPU, мало памяти) ----
+  stress-iot:
+    build:
+      context: .
+      target: test-runner
+    depends_on:
+      - rtp-source
+    networks:
+      - lossy_net
+    cap_add:
+      - NET_ADMIN
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"       # 25% одного ядра — типичный IoT SoC
+          memory: 128M       # 128 MB RAM
+    environment:
+      - TEST_MODE=stress
+      - STRESS_PROFILE=lte_edge
+    volumes:
+      - test-results:/app/results
+    command: ["/app/tests/scripts/run_stress.sh"]
+    profiles:
+      - stress              # запускается только с --profile stress
+
+# ---------------------------------------------------------------
+# Тома
+# ---------------------------------------------------------------
+volumes:
+  test-results:            # JUnit XML + CSV метрики
+  pcap-dumps:              # .pcapng для post-mortem анализа

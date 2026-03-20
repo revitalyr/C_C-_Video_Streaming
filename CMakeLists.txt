@@ -62,8 +62,20 @@ target_sources(video_streaming_lib
             "common/logger.ixx"
             "common/interfaces.ixx"
             "common/std.ixx"
+            "pipeline/pipeline.ixx"
     PRIVATE
         "common/logger.cpp"
+        "network/sender.cpp"
+        "network/receiver.cpp"
+        "network/udp_socket.cpp"
+        "media/frame.cpp"
+        "media/synthetic_encoder.cpp"
+        "rtp/h264_packetizer.cpp"
+        "rtp/h264_depacketizer.cpp"
+        "rtp/rtp_packet.cpp"
+        "jitter/jitter_buffer.cpp"
+        "common/time.cpp"
+        "network/endpoint.cpp"
 )
 
 target_include_directories(video_streaming_lib PUBLIC
@@ -92,6 +104,7 @@ if(BUILD_TESTING)
         tests/test_logger.cpp
         tests/test_interfaces.cpp
         tests/test_integration.cpp
+        tests/test_pipeline.cpp
     )
 
     # CXX_SCAN_FOR_MODULES наследуется от глобального CMAKE_CXX_SCAN_FOR_MODULES,
