@@ -2,6 +2,7 @@
 #include <catch2/catch_all.hpp>
 #include <ranges>
 #include <algorithm>
+#include <format>
 
 import video_streaming.interfaces;
 
@@ -85,7 +86,7 @@ TEST_CASE("C++26 Advanced Features", "[interfaces][c++26]") {
         Vector numbers = {1, 2, 3, 4, 5};
         static_assert(std::is_same_v<decltype(numbers), Vector<int>>);
         
-        UnorderedMap map = std::unordered_map<String, int>{{"test", 42}};
+        auto map = UnorderedMap<String, int>{{"test", 42}};
         static_assert(std::is_same_v<decltype(map), UnorderedMap<String, int>>);
     }
     
@@ -98,7 +99,9 @@ TEST_CASE("C++26 Advanced Features", "[interfaces][c++26]") {
             | std::views::transform([](int n) { return n * n; })
             | std::views::take(3);
         
-        Vector<int> squares(result.begin(), result.end());
+        // C++20 ranges: use common view to match iterator/sentinel types for vector constructor
+        auto common = result | std::views::common;
+        Vector<int> squares(common.begin(), common.end());
         REQUIRE(squares == Vector<int>{4, 16, 36});
     }
     
@@ -191,18 +194,19 @@ TEST_CASE("Type Safety and Constraints", "[interfaces][safety]") {
 TEST_CASE("Compile-time Features", "[interfaces][constexpr]") {
     
     SECTION("Constexpr Operations") {
-        // C++26: constexpr операции с нашими типами
-        constexpr Vector<int> const_vec = {1, 2, 3};
-        static_assert(const_vec.size() == 3);
+        // C++26: constexpr операции с нашими типами (transient allocation check)
+        static_assert( []() consteval {
+            Vector<int> v = {1, 2, 3};
+            return v.size();
+        }() == 3);
         
         // C++26: constexpr алгоритмы
-        constexpr auto sum = [](const Vector<int>& v) constexpr {
+        static_assert( []() consteval {
+            Vector<int> v = {1, 2, 3};
             int total = 0;
             for (int n : v) total += n;
             return total;
-        };
-        
-        static_assert(sum(const_vec) == 6);
+        }() == 6);
     }
     
     SECTION("Template Constraints") {

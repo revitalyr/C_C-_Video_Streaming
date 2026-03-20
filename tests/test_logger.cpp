@@ -2,6 +2,8 @@
 #include <catch2/catch_all.hpp>
 #include <chrono>
 #include <thread>
+#include <vector>
+#include <string>
 
 import video_streaming.logger;
 import video_streaming.interfaces;
@@ -15,7 +17,7 @@ TEST_CASE("Logger Construction and Basic Operations", "[logger]") {
         Logger logger("test_logger", LogLevel::INFO);
         
         // C++26: Используем [[nodiscard]] атрибут
-        [[nodiscard]] auto& manager = LoggerManager::instance();
+        auto& manager = LoggerManager::instance();
         
         auto* retrieved = manager.get_logger("test_logger");
         REQUIRE(retrieved != nullptr);
@@ -42,7 +44,7 @@ TEST_CASE("Logger Construction and Basic Operations", "[logger]") {
                 auto& mgr = LoggerManager::instance();
                 auto* logger = mgr.get_logger(std::format("thread_{}", i));
                 REQUIRE(logger != nullptr);
-                logger->info(LogFormat("Thread {} message", i));
+                logger->info(LogFormat("Thread {} message"), i);
             });
         }
         
@@ -55,14 +57,14 @@ TEST_CASE("Logger Construction and Basic Operations", "[logger]") {
         Logger logger("level_test", LogLevel::WARN);
         
         // C++26: Используем perfect forwarding
-        logger->info(LogFormat("This should not appear"));
-        logger->warn(LogFormat("This should appear"));
-        logger->error(LogFormat("This should appear"));
+        logger.info(LogFormat("This should not appear"));
+        logger.warn(LogFormat("This should appear"));
+        logger.error(LogFormat("This should appear"));
         
         // C++26: Изменение уровня во время выполнения
-        logger->set_level(LogLevel::ERROR);
-        logger->warn(LogFormat("This should not appear anymore"));
-        logger->error(LogFormat("This should still appear"));
+        logger.set_level(LogLevel::ERROR);
+        logger.warn(LogFormat("This should not appear anymore"));
+        logger.error(LogFormat("This should still appear"));
     }
 }
 
@@ -76,7 +78,7 @@ TEST_CASE("Advanced C++26 Features", "[logger][c++26]") {
         const double double_val = 3.14159;
         const std::string string_val = "test";
         
-        logger->info(LogFormat("Int: {}, Double: {}, String: {}", int_val, double_val, string_val));
+        logger.info(LogFormat("Int: {}, Double: {}, String: {}"), int_val, double_val, string_val);
     }
     
     SECTION("Range Logging") {
@@ -84,10 +86,10 @@ TEST_CASE("Advanced C++26 Features", "[logger][c++26]") {
         
         // C++26: Логирование ranges
         std::vector<int> numbers = {1, 2, 3, 4, 5};
-        logger->info_range(LogFormat("Numbers"), numbers);
+        logger.info_range(LogFormat("Numbers"), numbers);
         
         std::vector<std::string> strings = {"hello", "world", "c++26"};
-        logger->info_range(LogFormat("Strings"), strings);
+        logger.info_range(LogFormat("Strings"), strings);
     }
     
     SECTION("Error Handling") {
@@ -119,7 +121,7 @@ TEST_CASE("Performance and Thread Safety", "[logger][performance]") {
         for (int i = 0; i < num_threads; ++i) {
             threads.emplace_back([&logger, &total_messages, i, messages_per_thread] {
                 for (int j = 0; j < messages_per_thread; ++j) {
-                    logger->info(LogFormat("Thread {} message {}", i, j));
+                    logger.info(LogFormat("Thread {} message {}"), i, j);
                     ++total_messages;
                 }
             });
@@ -159,7 +161,7 @@ TEST_CASE("Performance and Thread Safety", "[logger][performance]") {
         for (const auto& name : logger_names) {
             auto* logger = manager.get_logger(name);
             REQUIRE(logger != nullptr);
-            logger->info(LogFormat("Created logger: {}", name));
+            logger->info(LogFormat("Created logger: {}"), name);
         }
         
         auto end_time = std::chrono::high_resolution_clock::now();

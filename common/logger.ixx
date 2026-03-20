@@ -1,191 +1,241 @@
 module;
 
+// Third-party library imports
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/rotating_file_sink.h>
-#include <source_location>
-#include <format>
-#include <string_view>
+#include <spdlog/sinks/daily_file_sink.h>
+
+// Standard library imports
 #include <memory>
 #include <mutex>
-#include <ranges>
+#include <string>
+#include <vector>
+#include <cstddef>
+#include <chrono>
+#include <ranges>          // Added for std::ranges::range
+#include <source_location> // Добавлено
+#include <format>          // Добавлено для удобства форматирования
 #include <concepts>
-#include <expected>
+#include <string_view>
+#include "../common/types.hpp"
+#undef ERROR
 
 export module video_streaming.logger;
 
+// C++23 module imports
 import video_streaming.interfaces;
 import video_streaming.std;
 
 export namespace video_streaming {
 
-// C++26 concepts для логирования
-template<typename T>
-concept Formattable = requires(T t) {
-    { std::format("{}", t) } -> std::string;
-};
-
-template<typename T>
-concept Loggable = requires(T t) {
-    { t.to_string() } -> std::string;
-} || Formattable<T>;
-
-// C++26 структура для автоматического захвата места вызова с улучшенной типизацией
-export struct LogFormat {
+export struct LogFormat { // Exported so tests can use it
     std::string_view fmt;
     std::source_location loc;
-    
-    // C++26 consteval конструктор с улучшенными constraintами
+
+    // Конструктор помечен consteval, чтобы захват происходил в момент компиляции в месте вызова
     template <typename T>
     requires std::convertible_to<T, std::string_view>
-    consteval LogFormat(const T& s, std::source_location l = std::source_location::current())
-        : fmt(s), loc(l) {}
-        
-    // C++26 explicit конструктор для string literals
-    consteval LogFormat(const char* s, std::source_location l = std::source_location::current())
+    constexpr LogFormat(const T& s, std::source_location l = std::source_location::current())
         : fmt(s), loc(l) {}
 };
 
-export enum class LogLevel : uint8_t {
-    TRACE = 0, DEBUG = 1, INFO = 2, WARN = 3, ERROR = 4, CRITICAL = 5
+// Export Formattable concept for tests
+export template<typename T>
+concept Formattable = requires(T t) {
+    { std::format("{}", t) } -> std::convertible_to<std::string>;
 };
 
-// C++26 expected type для обработки ошибок логирования
-export enum class LoggerError {
-    NoError,
-    InitializationFailed,
-    SinkCreationFailed,
-    FormatError
+
+export enum class LogLevel {
+    TRACE = 0,
+    DEBUG = 1,
+    INFO = 2,
+    WARN = 3,
+    ERROR = 4,
+    CRITICAL = 5
 };
 
-// C++26 класс Logger с улучшенной функциональностью
+// Helper types for logging
+export using SessionId = std::string;
+export using ErrorMessage = std::string;
+export using FileName = std::string;
+export using Result = ::Result; // Re-export global Result type
+
+export enum class SecurityEventType {
+    LOGIN_ATTEMPT,
+    ACCESS_DENIED,
+    VIOLATION,
+    LOGOUT
+};
+
+export struct SecurityEvent {
+    SecurityEventType m_type;
+    String m_username;
+    String m_client_ip;
+    String m_details;
+};
+
+// Forward declarations
+export class Logger;
+export class LoggerManager;
+
 export class Logger {
 public:
-    // C++26 constructor с perfect forwarding
-    template <typename Name>
-    requires std::convertible_to<Name, std::string>
-    explicit Logger(Name&& name, LogLevel level = LogLevel::INFO) 
-        : m_name(std::forward<Name>(name)), m_level(level) {
-        auto result = initialize_default_sinks();
-        if (!result) {
-            throw std::runtime_error("Failed to initialize logger: " + result.error());
-        }
+    Logger(const String& name, LogLevel level = LogLevel::INFO);
+    Logger(const String& name, LogLevel level, const String& file_path);
+    ~Logger();
+    
+    static std::shared_ptr<Logger> get(const String& name) {
+        // Simple factory for now, would typically use LoggerManager
+        return std::make_shared<Logger>(name);
     }
-    
-    ~Logger() = default;
-    
-    // Non-copyable, но movable
-    Logger(const Logger&) = delete;
-    Logger& operator=(const Logger&) = delete;
-    Logger(Logger&&) noexcept = default;
-    Logger& operator=(Logger&&) noexcept = default;
-    
-    // C++26 perfect forwarding методы логирования
-    template <typename... Args>
-    requires (Formattable<Args> && ...)
-    void info(LogFormat msg, Args&&... args) {
-        log_internal(LogLevel::INFO, msg, std::make_format_args(std::forward<Args>(args)...));
+
+    // Modern logging methods with semantic types
+    void log_session_event(const SessionId& session_id, const String& event_type, const String& details);
+    void log_security_event(const SecurityEvent& event);
+
+    // Generic log method with source location and formatting support
+    template<typename... Args>
+    void log(LogLevel level, const std::source_location& loc, std::format_string<Args...> fmt, Args&&... args) {
+        if (level < m_level) return;
+        log_impl(level, loc, fmt.get(), std::make_format_args(args...));
     }
-    
-    template <typename... Args>
-    requires (Formattable<Args> && ...)
-    void error(LogFormat msg, Args&&... args) {
-        log_internal(LogLevel::ERROR, msg, std::make_format_args(std::forward<Args>(args)...));
+
+    // Helper methods for specific levels using source_location
+    template<typename... Args>
+    void trace(LogFormat target, Args&&... args) {
+        log_impl(LogLevel::TRACE, target.loc, target.fmt, std::make_format_args(args...));
     }
-    
-    template <typename... Args>
-    requires (Formattable<Args> && ...)
-    void debug(LogFormat msg, Args&&... args) {
-        log_internal(LogLevel::DEBUG, msg, std::make_format_args(std::forward<Args>(args)...));
+
+    template<typename... Args>
+    void debug(LogFormat target, Args&&... args) {
+        log_impl(LogLevel::DEBUG, target.loc, target.fmt, std::make_format_args(args...));
     }
-    
-    template <typename... Args>
-    requires (Formattable<Args> && ...)
-    void warn(LogFormat msg, Args&&... args) {
-        log_internal(LogLevel::WARN, msg, std::make_format_args(std::forward<Args>(args)...));
+
+    template<typename... Args>
+    void info(LogFormat target, Args&&... args) {
+       log_impl(LogLevel::INFO, target.loc, target.fmt, std::make_format_args(args...));
     }
-    
-    // C++26 метод для логирования ranges
-    template <std::ranges::range R>
-    requires Formattable<std::ranges::range_value_t<R>>
+
+    template<typename... Args>
+    void warn(LogFormat target, Args&&... args) {
+        log_impl(LogLevel::WARN, target.loc, target.fmt, std::make_format_args(args...));
+    }
+
+    template<typename... Args>
+    void error(LogFormat target, Args&&... args) {
+        log_impl(LogLevel::ERROR, target.loc, target.fmt, std::make_format_args(args...));
+    }
+
+    template<typename... Args>
+    void critical(LogFormat target, Args&&... args) {
+       log_impl(LogLevel::CRITICAL, target.loc, target.fmt, std::make_format_args(args...));
+    }
+
+    // Range logging
+    template<std::ranges::range R>
     void info_range(LogFormat msg, R&& range) {
-        std::string formatted;
+        std::string formatted = "[";
         for (const auto& item : range) {
-            if (!formatted.empty()) formatted += ", ";
+            if (formatted.length() > 1) formatted += ", ";
             formatted += std::format("{}", item);
         }
-        info(LogFormat("{}: {}", msg.fmt, formatted));
+        formatted += "]";
+        info(LogFormat("{} {}"), msg.fmt, formatted);
     }
     
-    // C++26 structured binding поддержка
-    void set_level(LogLevel level) noexcept { m_level = level; }
-    [[nodiscard]] LogLevel get_level() const noexcept { return m_level; }
-    [[nodiscard]] const String& get_name() const noexcept { return m_name; }
+    // Additional logging methods used in implementation
+    void log_with_fields(LogLevel level, const String& component, const String& message, const std::vector<std::pair<String, String>>& fields);
+    void log_authentication_attempt(const String& username, const String& client_ip, bool success, const String& reason);
+    void log_session_creation(const String& session_id, const String& username, const String& client_ip, const String& target_service);
+    void log_session_termination(const String& session_id, const String& reason);
+    void log_access_denied(const String& username, const String& client_ip, const String& resource, const String& reason);
+    void log_security_violation(const String& client_ip, const String& violation_type, const String& details);
+    void log_security_event(const String& event_type, const String& details);
+    void log_performance_metric(const String& operation, double duration_ms, const String& unit);
+    void log_connection_stats(size_t active_connections, size_t total_connections);
+    void log_throughput(size_t bytes_transferred, const String& direction);
+
+    // Sink management
+    void add_file_sink(const String& filename, size_t max_file_size, size_t max_files);
+    void add_daily_file_sink(const String& filename, int hour, int minute);
+    void enable_console_output(bool enable);
+    
+    // Static helpers
+    static spdlog::level::level_enum convert_log_level(LogLevel level);
+    static String format_fields(const std::vector<std::pair<String, String>>& fields);
+
+    // Configuration methods
+    void set_level(LogLevel level);
+    LogLevel get_level() const noexcept;
+    const String& get_name() const noexcept { return m_name; }
+    
+    // Formatting options
+    void format_timestamp(bool enable) noexcept;
+    void format_security_event(bool enable) noexcept;
+    void set_pattern(const String& pattern);
 
 private:
-    std::expected<void, LoggerError> initialize_default_sinks();
-    void log_internal(LogLevel level, const LogFormat& msg, std::format_args args);
-    
-    // C++26 std::atomic для thread-safe операций
-    std::mutex m_mutex;
-    std::shared_ptr<spdlog::logger> m_logger;
+    void log_impl(LogLevel level, const std::source_location& loc, std::string_view fmt, std::format_args args);
+    void initialize_default_sinks(const String& name, LogLevel level, const String& log_file);
+
     String m_name;
     LogLevel m_level;
+    std::shared_ptr<spdlog::logger> m_logger;
+    bool m_format_timestamp{true};
+    bool m_format_security_event{true};
+    String m_format_fields{"default"};
+    mutable std::mutex m_mutex;
 };
 
-// C++26 Singleton с thread-safe initialization
 export class LoggerManager {
 public:
-    static LoggerManager& instance() noexcept {
-        static LoggerManager instance;
-        return instance;
-    }
+    static LoggerManager& instance();
     
-    // C++26 метод с perfect forwarding
-    template <typename Name>
-    requires std::convertible_to<Name, std::string>
-    Logger* get_logger(Name&& name) {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        
-        auto it = m_loggers.find(std::string_view(name));
-        if (it != m_loggers.end()) {
-            return it->second.get();
-        }
-        
-        // C++26 structured bindings и emplace
-        auto [it, inserted] = m_loggers.emplace(
-            std::string(name),
-            std::make_unique<Logger>(std::forward<Name>(name))
-        );
-        
-        return it->second.get();
-    }
+    // Modern logger management with semantic types
+    Result create_logger(const String& name, LogLevel level = LogLevel::INFO);
+    bool remove_logger(const String& name);
+    Logger* get_logger(const String& name);
     
-    // C++26 метод для удаления логгера
-    bool remove_logger(const String& name) {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        return m_loggers.erase(name) > 0;
-    }
+    // Global configuration
+    void set_global_level(LogLevel level);
+    void set_output_file(const FileName& filename);
+    void set_max_file_size(std::size_t size_bytes);
+    void set_max_files(std::size_t count);
     
-    // C++26 метод для получения всех логгеров
-    [[nodiscard]] std::vector<String> get_logger_names() const {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        std::vector<String> names;
-        names.reserve(m_loggers.size());
-        
-        for (const auto& [name, logger] : m_loggers) {
-            names.push_back(name);
-        }
-        
-        return names;
-    }
+    // Flush all loggers
+        void flush_all();
+    
+    // Statistics
+    std::size_t get_logger_count() const noexcept;
+    Strings get_logger_names() const;
 
 private:
     LoggerManager() = default;
     ~LoggerManager() = default;
     
     UnorderedMap<String, std::unique_ptr<Logger>> m_loggers;
-    mutable std::mutex m_mutex;
+    mutable std::mutex m_loggers_mutex;
+    LogLevel m_global_level{LogLevel::INFO};
+    FileName m_output_file{"video_streaming.log"};
+    std::size_t m_max_file_size{10 * 1024 * 1024}; // 10MB
+    std::size_t m_max_files{5};
 };
+
+// Convenience macros for logging
+// Updated macros to utilize std::source_location implicitly via new template methods
+#define LOG_TRACE(logger, ...) logger.trace(__VA_ARGS__)
+#define LOG_DEBUG(logger, ...) logger.debug(__VA_ARGS__)
+#define LOG_INFO(logger, ...) logger.info(__VA_ARGS__)
+#define LOG_WARN(logger, ...) logger.warn(__VA_ARGS__)
+#define LOG_ERROR(logger, ...) logger.error(__VA_ARGS__)
+#define LOG_CRITICAL(logger, ...) logger.critical(__VA_ARGS__)
+
+// Global logger access
+#define LOG_SESSION_EVENT(session_id, event_type, details) \
+    video_streaming::LoggerManager::instance().get_logger("session")->log_session_event(session_id, event_type, details)
+#define LOG_SECURITY_EVENT(event) \
+    video_streaming::LoggerManager::instance().get_logger("security")->log_security_event(event)
 
 } // namespace video_streaming

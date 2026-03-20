@@ -4,6 +4,8 @@
 #include <thread>
 #include <barrier>
 #include <latch>
+#include <vector>
+#include <ranges>
 
 import video_streaming.logger;
 import video_streaming.interfaces;
@@ -29,7 +31,7 @@ TEST_CASE("Logger Integration with Real-world Scenarios", "[integration]") {
         for (int i = 0; i < num_threads; ++i) {
             threads.emplace_back([&manager, &total_logged, i, messages_per_thread, &sync_point] {
                 auto* logger = manager.get_logger(std::format("worker_{}", i));
-                logger->info(LogFormat("Thread {} started", i));
+                logger->info(LogFormat("Thread {} started"), i);
                 
                 // Синхронизация всех потоков
                 sync_point.arrive_and_wait();
@@ -41,14 +43,14 @@ TEST_CASE("Logger Integration with Real-world Scenarios", "[integration]") {
                 }
                 
                 for (const auto& [task_id, task_name] : tasks) {
-                    logger->info(LogFormat("Processing {}: {}", task_name, task_id));
+                    logger->info(LogFormat("Processing {}: {}"), task_name, task_id);
                     ++total_logged;
                     
                     // Симуляция работы
                     std::this_thread::sleep_for(std::chrono::microseconds(1));
                 }
                 
-                logger->info(LogFormat("Thread {} completed", i));
+                logger->info(LogFormat("Thread {} completed"), i);
             });
         }
         
@@ -82,7 +84,7 @@ TEST_CASE("Logger Integration with Real-world Scenarios", "[integration]") {
             auto* logger = manager.get_logger(name);
             REQUIRE(logger != nullptr);
             
-            logger->info(LogFormat("Created temporary logger {}", name));
+            logger->info(LogFormat("Created temporary logger {}"), name);
         }
         
         // Проверка что все логгеры созданы
@@ -120,7 +122,7 @@ TEST_CASE("Performance Benchmarks", "[integration][performance]") {
         // C++26: Batch logging для оптимизации
         for (int batch = 0; batch < num_messages / batch_size; ++batch) {
             for (int i = 0; i < batch_size; ++i) {
-                logger->info(LogFormat("Message {}: {}", batch * batch_size + i, "benchmark"));
+                logger.info(LogFormat("Message {}: {}"), batch * batch_size + i, "benchmark");
             }
         }
         
@@ -151,7 +153,7 @@ TEST_CASE("Performance Benchmarks", "[integration][performance]") {
             REQUIRE(logger != nullptr);
             
             // Логирование для проверки выделения памяти
-            logger->info(LogFormat("Memory test logger {} created", i));
+            logger->info(LogFormat("Memory test logger {} created"), i);
         }
         
         // Проверка что все логгеры существуют
@@ -223,7 +225,7 @@ TEST_CASE("Error Handling and Recovery", "[integration][error]") {
                     // Симуляция различных операций
                     for (int j = 0; j < 100; ++j) {
                         try {
-                            logger->info(LogFormat("Thread {} operation {}", i, j));
+                            logger->info(LogFormat("Thread {} operation {}"), i, j);
                             
                             // Симуляция ошибки
                             if (j % 25 == 0) {
@@ -231,7 +233,7 @@ TEST_CASE("Error Handling and Recovery", "[integration][error]") {
                             }
                         } catch (const std::exception& e) {
                             ++error_count;
-                            logger->error(LogFormat("Error in thread {}: {}", i, e.what()));
+                            logger->error(LogFormat("Error in thread {}: {}"), i, e.what());
                         }
                     }
                 } catch (...) {
@@ -294,7 +296,7 @@ TEST_CASE("C++26 Specific Features", "[integration][c++26]") {
         // C++26: Логирование отфильтрованных имен
         for (const auto& name : range_names) {
             auto* logger = manager.get_logger(name);
-            logger->info(LogFormat("Range logger: {}", name));
+            logger->info(LogFormat("Range logger: {}"), name);
         }
     }
 }
