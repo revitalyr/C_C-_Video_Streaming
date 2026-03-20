@@ -1,0 +1,18 @@
+{
+  "name": "video-streaming",
+  "version": "1.0.0",
+  "description": "C++26 Video Streaming System with modules and modern features",
+  "homepage": "https://github.com/video-streaming/video-streaming",
+  "license": "MIT",
+  "dependencies": [
+    {
+      "name": "spdlog",
+      "version>=": "1.12.0"
+    },
+    {
+      "name": "catch2",
+      "version>=": "3.4.0"
+    }
+  ],
+  "builtin-baseline": "2024-01-01"
+}
