@@ -3,6 +3,10 @@
 #include <chrono>
 #include <thread>
 
+#include "../network/receiver.hpp"
+#include "../network/sender.hpp"
+#include "../rtp/rtp_packet.hpp"
+
 import video_streaming.pipeline;
 import video_streaming.logger;
 

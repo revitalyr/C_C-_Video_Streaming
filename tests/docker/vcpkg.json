@@ -1,6 +1,7 @@
 {
   "name": "video-streaming",
   "version": "1.0.0",
+  "builtin-baseline": "ef4df55b0e5c62fb75c5f6ed04408c6e7e49c7c3",
   "dependencies": [
     {
       "name": "spdlog",
@@ -10,6 +11,5 @@
       "name": "catch2",
       "version>=": "3.4.0"
     }
-  ],
-  "builtin-baseline": "2024-01-01"
+  ]
 }

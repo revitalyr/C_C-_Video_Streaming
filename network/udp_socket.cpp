@@ -1,5 +1,15 @@
 #include "udp_socket.hpp"
 
+#ifndef _WIN32
+#include <unistd.h>
+#include <fcntl.h>
+#include <cerrno>
+#include <cstring>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#endif
+
 #ifdef _WIN32
 static bool winsock_initialized = false;
 
@@ -60,7 +70,11 @@ bool UdpSocket::open() {
 
 void UdpSocket::close() {
     if (is_open()) {
+#ifdef _WIN32
         closesocket(m_socket);
+#else
+        ::close(m_socket);
+#endif
         m_socket = INVALID_SOCKET;
     }
 }

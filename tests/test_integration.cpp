@@ -31,7 +31,7 @@ TEST_CASE("Logger Integration with Real-world Scenarios", "[integration]") {
         for (int i = 0; i < num_threads; ++i) {
             threads.emplace_back([&manager, &total_logged, i, messages_per_thread, &sync_point] {
                 auto* logger = manager.get_logger(std::format("worker_{}", i));
-                logger->info(LogFormat("Thread {} started"), i);
+                logger->info("Thread {} started", i);
                 
                 // Синхронизация всех потоков
                 sync_point.arrive_and_wait();
@@ -43,14 +43,14 @@ TEST_CASE("Logger Integration with Real-world Scenarios", "[integration]") {
                 }
                 
                 for (const auto& [task_id, task_name] : tasks) {
-                    logger->info(LogFormat("Processing {}: {}"), task_name, task_id);
+                    logger->info("Processing {}: {}", task_name, task_id);
                     ++total_logged;
                     
                     // Симуляция работы
                     std::this_thread::sleep_for(std::chrono::microseconds(1));
                 }
                 
-                logger->info(LogFormat("Thread {} completed"), i);
+                logger->info("Thread {} completed", i);
             });
         }
         
@@ -84,7 +84,7 @@ TEST_CASE("Logger Integration with Real-world Scenarios", "[integration]") {
             auto* logger = manager.get_logger(name);
             REQUIRE(logger != nullptr);
             
-            logger->info(LogFormat("Created temporary logger {}"), name);
+            logger->info("Created temporary logger {}", name);
         }
         
         // Проверка что все логгеры созданы
@@ -97,7 +97,9 @@ TEST_CASE("Logger Integration with Real-world Scenarios", "[integration]") {
         for (int i = 0; i < num_temp_loggers / 2; ++i) {
             String name = std::format("temp_{}", i);
             REQUIRE(manager.remove_logger(name) == true);
-            REQUIRE(manager.get_logger(name) == nullptr);
+            // Verify removal by checking the list of names, before get_logger auto-creates it again.
+            auto current_names = manager.get_logger_names();
+            REQUIRE(std::ranges::find(current_names, name) == current_names.end());
         }
         
         // Проверка что оставшиеся логгеры все еще существуют
@@ -122,7 +124,7 @@ TEST_CASE("Performance Benchmarks", "[integration][performance]") {
         // C++26: Batch logging для оптимизации
         for (int batch = 0; batch < num_messages / batch_size; ++batch) {
             for (int i = 0; i < batch_size; ++i) {
-                logger.info(LogFormat("Message {}: {}"), batch * batch_size + i, "benchmark");
+                logger.info("Message {}: {}", batch * batch_size + i, "benchmark");
             }
         }
         
@@ -153,7 +155,7 @@ TEST_CASE("Performance Benchmarks", "[integration][performance]") {
             REQUIRE(logger != nullptr);
             
             // Логирование для проверки выделения памяти
-            logger->info(LogFormat("Memory test logger {} created"), i);
+            logger->info("Memory test logger {} created", i);
         }
         
         // Проверка что все логгеры существуют
@@ -183,25 +185,25 @@ TEST_CASE("Error Handling and Recovery", "[integration][error]") {
         REQUIRE(logger != nullptr);
         
         // Тестирование различных уровней логирования
-        logger->debug(LogFormat("Debug message"));
-        logger->info(LogFormat("Info message"));
-        logger->warn(LogFormat("Warning message"));
-        logger->error(LogFormat("Error message"));
+        logger->debug("Debug message");
+        logger->info("Info message");
+        logger->warn("Warning message");
+        logger->error("Error message");
         
         // Изменение уровня для фильтрации
         logger->set_level(LogLevel::ERROR);
         
         // Эти сообщения не должны появиться в логе
-        logger->debug(LogFormat("This should not appear"));
-        logger->info(LogFormat("This should not appear"));
-        logger->warn(LogFormat("This should not appear"));
+        logger->debug("This should not appear");
+        logger->info("This should not appear");
+        logger->warn("This should not appear");
         
         // Это сообщение должно появиться
-        logger->error(LogFormat("This should appear"));
+        logger->error("This should appear");
         
         // Восстановление уровня
         logger->set_level(LogLevel::INFO);
-        logger->info(LogFormat("Recovered logging level"));
+        logger->info("Recovered logging level");
     }
     
     SECTION("Concurrent Error Recovery") {
@@ -225,7 +227,7 @@ TEST_CASE("Error Handling and Recovery", "[integration][error]") {
                     // Симуляция различных операций
                     for (int j = 0; j < 100; ++j) {
                         try {
-                            logger->info(LogFormat("Thread {} operation {}"), i, j);
+                            logger->info("Thread {} operation {}", i, j);
                             
                             // Симуляция ошибки
                             if (j % 25 == 0) {
@@ -233,7 +235,7 @@ TEST_CASE("Error Handling and Recovery", "[integration][error]") {
                             }
                         } catch (const std::exception& e) {
                             ++error_count;
-                            logger->error(LogFormat("Error in thread {}: {}"), i, e.what());
+                            logger->error("Error in thread {}: {}", i, e.what());
                         }
                     }
                 } catch (...) {
@@ -269,9 +271,9 @@ TEST_CASE("C++26 Specific Features", "[integration][c++26]") {
         REQUIRE(logger2 != nullptr);
         REQUIRE(logger3 != nullptr);
         
-        logger1->info(LogFormat("Structured binding test 1"));
-        logger2->info(LogFormat("Structured binding test 2"));
-        logger3->info(LogFormat("Structured binding test 3"));
+        logger1->info("Structured binding test 1");
+        logger2->info("Structured binding test 2");
+        logger3->info("Structured binding test 3");
     }
     
     SECTION("Ranges with Logger Names") {
@@ -296,7 +298,7 @@ TEST_CASE("C++26 Specific Features", "[integration][c++26]") {
         // C++26: Логирование отфильтрованных имен
         for (const auto& name : range_names) {
             auto* logger = manager.get_logger(name);
-            logger->info(LogFormat("Range logger: {}"), name);
+            logger->info("Range logger: {}", name);
         }
     }
 }

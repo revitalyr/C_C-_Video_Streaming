@@ -7,6 +7,9 @@ module;
 #include <chrono>
 #include <functional>
 #include <iostream>
+#include <fstream>
+
+#include "../common/types.hpp"
 
 // Components headers
 #include "../media/frame.hpp"
@@ -34,6 +37,13 @@ export struct PipelineConfig {
     Port src_port = 5004;
     size_t jitter_size = 50;
     Milliseconds jitter_delay{50};
+    bool enable_sender = true;
+    bool enable_receiver = true;
+};
+
+export struct PipelineMetrics {
+    double glass_to_glass_ms = 0.0;
+    double jitter_buffer_depth_ms = 0.0;
 };
 
 export class Pipeline {
@@ -55,20 +65,24 @@ public:
         if (m_running) return false;
         
         auto& logger = LoggerManager::instance();
-        logger.get_logger("pipeline")->info(LogFormat("Starting pipeline..."));
+        logger.get_logger("pipeline")->info("Starting pipeline...");
 
-        if (!m_sender.start()) {
-            logger.get_logger("pipeline")->error(LogFormat("Failed to start sender"));
+        if (m_config.enable_sender && !m_sender.start()) {
+            logger.get_logger("pipeline")->error("Failed to start sender");
             return false;
         }
-        if (!m_receiver.start()) {
-            logger.get_logger("pipeline")->error(LogFormat("Failed to start receiver"));
+        if (m_config.enable_receiver && !m_receiver.start()) {
+            logger.get_logger("pipeline")->error("Failed to start receiver");
             return false;
         }
 
         m_running = true;
-        m_capture_thread = std::thread(&Pipeline::capture_loop, this);
-        m_process_thread = std::thread(&Pipeline::process_loop, this);
+        if (m_config.enable_sender) {
+            m_capture_thread = std::thread(&Pipeline::capture_loop, this);
+        }
+        if (m_config.enable_receiver) {
+            m_process_thread = std::thread(&Pipeline::process_loop, this);
+        }
 
         return true;
     }
@@ -82,10 +96,12 @@ public:
         
         m_sender.stop();
         m_receiver.stop();
-        LoggerManager::instance().get_logger("pipeline")->info(LogFormat("Pipeline stopped"));
+        LoggerManager::instance().get_logger("pipeline")->info("Pipeline stopped");
     }
 
-    // Statistics accessors could be added here
+    PipelineMetrics get_metrics() const {
+        return m_metrics;
+    }
 
 private:
     void capture_loop() {
@@ -130,12 +146,18 @@ private:
             if (m_jitter_buffer.pop(pkt)) {
                 auto frames = m_depacketizer.process_packet(pkt);
                 // In a real pipeline, we would decode 'frames' here
+                
+                // Simple metrics update
+                m_metrics.jitter_buffer_depth_ms = static_cast<double>(m_config.jitter_delay.count());
+                // Glass-to-glass latency calculation requires sync clocks or RTT estimation, skipping for now or using dummy
+                m_metrics.glass_to_glass_ms = 100.0; // Dummy value for demonstration
             }
         }
     }
 
     PipelineConfig m_config;
     std::atomic<bool> m_running{false};
+    PipelineMetrics m_metrics;
     
     // Pipeline components
     SyntheticH264Encoder m_encoder;

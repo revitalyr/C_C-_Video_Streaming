@@ -14,7 +14,7 @@ TEST_CASE("Basic Type Aliases", "[interfaces]") {
     SECTION("String Type") {
         String str = "Hello, C++26!";
         REQUIRE(str == "Hello, C++26!");
-        REQUIRE(str.size() == 14);
+        REQUIRE(str.size() == 13);
         
         // C++26: Perfect forwarding для String
         String moved_str = std::move(str);

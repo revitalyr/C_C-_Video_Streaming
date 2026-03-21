@@ -9,7 +9,8 @@ build:
 
 # ── Запуск всех тестов (unit + e2e) ──────────────────────────
 test:
-	docker compose run --rm unit-tests
+	docker compose run --rm unit-tests \
+		bash /app/tests/scripts/run_all.sh
 
 # ── Только unit-тесты (быстро, без сети) ─────────────────────
 test-unit:

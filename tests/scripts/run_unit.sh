@@ -8,8 +8,7 @@ mkdir -p "${RESULTS_DIR}"
 echo "[unit] Running Catch2 tests..."
 
 /app/video_streaming_tests \
-    --reporter junit \
-    --out "${RESULTS_DIR}/unit-tests.xml" \
+    --reporter junit::out="${RESULTS_DIR}/unit-tests.xml" \
     --reporter console \
     -v normal
 

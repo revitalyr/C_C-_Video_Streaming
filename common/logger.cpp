@@ -1,15 +1,20 @@
 module;
 
-#include <filesystem>
+#include <source_location>
 
 #include <spdlog/async.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/daily_file_sink.h>
 #include <spdlog/sinks/rotating_file_sink.h>
+#include <spdlog/pattern_formatter.h>
 #include <chrono>
 #include <iomanip>
 #include <format>
+#include <iterator>
+
+#include "../common/types.hpp"
+#include "../network/udp_socket.hpp"
 
 #undef ERROR // Fix collision with Windows ERROR macro
 module video_streaming.logger;
@@ -19,6 +24,67 @@ import video_streaming.std;
 
 // Logger class implementation
 namespace video_streaming {
+
+// Custom formatter for Hex Thread ID (%H)
+class ThreadIdHexFormatter : public spdlog::custom_flag_formatter {
+public:
+    void format(const spdlog::details::log_msg& msg, const std::tm&, spdlog::memory_buf_t& dest) override {
+        fmt::format_to(std::back_inserter(dest), "{:x}", msg.thread_id);
+    }
+
+    std::unique_ptr<custom_flag_formatter> clone() const override {
+        return std::make_unique<ThreadIdHexFormatter>();
+    }
+};
+
+// Custom formatter for Relative Time since start (%R)
+class RelativeTimeFormatter : public spdlog::custom_flag_formatter {
+public:
+    void format(const spdlog::details::log_msg& msg, const std::tm&, spdlog::memory_buf_t& dest) override {
+        // Capture start time on first use
+        static const auto start_time = spdlog::log_clock::now();
+        
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(msg.time - start_time);
+        auto seconds = elapsed.count() / 1000;
+        auto milliseconds = elapsed.count() % 1000;
+        
+        fmt::format_to(std::back_inserter(dest), "+{}.{:03}s", seconds, milliseconds);
+    }
+
+    std::unique_ptr<custom_flag_formatter> clone() const override {
+        return std::make_unique<RelativeTimeFormatter>();
+    }
+};
+
+// Custom UDP Sink
+template<typename Mutex>
+class CustomUdpSink : public spdlog::sinks::base_sink<Mutex> {
+public:
+    CustomUdpSink(const String& ip, Port port) : m_ip(ip), m_port(port) {
+        if (m_socket.open()) {
+            // Optionally set non-blocking or buffer sizes here
+        }
+    }
+
+protected:
+    void sink_it_(const spdlog::details::log_msg& msg) override {
+        spdlog::memory_buf_t formatted;
+        spdlog::sinks::base_sink<Mutex>::formatter_->format(msg, formatted);
+        
+        // Convert formatted log to Bytes and send
+        // Note: formatted.data() might not be null-terminated if treated as raw bytes, 
+        // but Bytes constructor handles the range correctly.
+        Bytes data(formatted.data(), formatted.data() + formatted.size());
+        m_socket.send_to(data, m_ip, m_port);
+    }
+
+    void flush_() override {}
+
+private:
+    UdpSocket m_socket;
+    String m_ip;
+    Port m_port;
+};
 
 constexpr auto DEFAULT_LOG_FILE = "video_streaming.log";
 
@@ -32,11 +98,11 @@ static String security_event_type_to_string(SecurityEventType type) {
     }
 }
 
-Logger::Logger(const String& name, LogLevel level) : m_mutex(), m_logger(nullptr) {
+Logger::Logger(const String& name, LogLevel level) : m_logger(nullptr) {
     initialize_default_sinks(name, level, DEFAULT_LOG_FILE);
 }
 
-Logger::Logger(const String& name, LogLevel level, const String& file_path) : m_mutex(), m_logger(nullptr) {
+Logger::Logger(const String& name, LogLevel level, const String& file_path) : m_logger(nullptr) {
     initialize_default_sinks(name, level, file_path);
 }
 
@@ -44,13 +110,35 @@ Logger::~Logger() = default;
 
 // Private helper methods
 void Logger::initialize_default_sinks(const String& name, LogLevel level, const String& log_file) {
-    // Create default file sink
-    auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(log_file, 1024*1024, 3);
-    file_sink->set_level(spdlog::level::info);
+    // Initialize global thread pool for async logging
+    static bool tp_initialized = [] {
+        spdlog::init_thread_pool(8192, 1); // Queue size: 8k, 1 backing thread
+        return true;
+    }();
+    (void)tp_initialized;
+
+    // Optimization: Reuse sinks for the same file to avoid opening multiple file descriptors
+    // and improve logger creation performance.
+    std::shared_ptr<spdlog::sinks::sink> file_sink;
+    {
+        static std::mutex s_sink_cache_mutex;
+        static UnorderedMap<String, std::shared_ptr<spdlog::sinks::sink>> s_sink_cache;
+        std::lock_guard<std::mutex> lock(s_sink_cache_mutex);
+        
+        if (auto it = s_sink_cache.find(log_file); it != s_sink_cache.end()) {
+            file_sink = it->second;
+        } else {
+            file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(log_file, 1024*1024, 3);
+            file_sink->set_level(spdlog::level::info);
+            s_sink_cache[log_file] = file_sink;
+        }
+    }
     
-    m_logger = std::make_shared<spdlog::logger>(name, file_sink);
+    // Use async_logger to push logs to the thread pool, decoupling formatting from I/O latency
+    m_logger = std::make_shared<spdlog::async_logger>(name, file_sink, spdlog::thread_pool(), spdlog::async_overflow_policy::block);
     m_logger->set_level(convert_log_level(level));
-    m_logger->flush_on(spdlog::level::info);
+    set_pattern("[%R] [%H] [%s:%#] %v");
+    m_logger->flush_on(spdlog::level::warn);
     
     m_name = name;
     m_level = level;
@@ -80,66 +168,46 @@ spdlog::level::level_enum Logger::convert_log_level(LogLevel level) {
 }
 
 void Logger::log_security_event(const String& event_type, const String& details) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    
     String formatted_event = format_fields({
         {"event_type", event_type},
         {"details", details}
     });
-    
     m_logger->info("SECURITY_EVENT: {}", formatted_event);
 }
 
 void Logger::log_session_event(const String& session_id, const String& event_type, const String& details) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    
     m_logger->info("SESSION_EVENT: session_id={}, event_type={}, details={}", 
                    session_id, event_type, details);
 }
 
-void Logger::log_impl(LogLevel level, const std::source_location& loc, std::string_view fmt, std::format_args args) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    
-    // Format the message using vformat
-    String message = std::vformat(fmt, args);
-
-    // Extract filename from path
-    std::filesystem::path path(loc.file_name());
-    String filename = path.filename().string();
-    
-    // Format with source location info
-    String detailed_msg = std::format("[{}:{}] {}", filename, loc.line(), message);
-
-    m_logger->log(convert_log_level(level), "{}", detailed_msg);
-}
-
 void video_streaming::Logger::set_level(video_streaming::LogLevel level) {
-    std::lock_guard<std::mutex> lock(m_mutex);
     m_logger->set_level(video_streaming::Logger::convert_log_level(level));
 }
 
 void video_streaming::Logger::set_pattern(const video_streaming::String& pattern) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_logger->set_pattern(pattern);
+    auto formatter = std::make_unique<spdlog::pattern_formatter>();
+    formatter->add_flag<ThreadIdHexFormatter>('H');
+    formatter->add_flag<RelativeTimeFormatter>('R');
+    formatter->set_pattern(pattern);
+    m_logger->set_formatter(std::move(formatter));
 }
 
 void video_streaming::Logger::add_file_sink(const video_streaming::String& filename, std::size_t max_file_size, std::size_t max_files) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    
     auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(filename, max_file_size, max_files);
     m_logger->sinks().push_back(file_sink);
 }
 
 void video_streaming::Logger::add_daily_file_sink(const video_streaming::String& filename, int hour, int minute) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    
     auto daily_sink = std::make_shared<spdlog::sinks::daily_file_sink_mt>(filename, hour, minute, false, static_cast<uint16_t>(5));
     m_logger->sinks().push_back(daily_sink);
 }
 
+void video_streaming::Logger::add_udp_sink(const String& ip, Port port) {
+    auto udp_sink = std::make_shared<CustomUdpSink<std::mutex>>(ip, port);
+    m_logger->sinks().push_back(udp_sink);
+}
+
 void video_streaming::Logger::enable_console_output(bool enable) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    
     if (enable) {
         // Check if console sink already exists
         bool has_console_sink = false;
@@ -167,8 +235,6 @@ void video_streaming::Logger::enable_console_output(bool enable) {
 
 void video_streaming::Logger::log_with_fields(video_streaming::LogLevel level, const video_streaming::String& component, const video_streaming::String& message,
                             const std::vector<std::pair<video_streaming::String, video_streaming::String>>& fields) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    
     video_streaming::String fields_str = video_streaming::Logger::format_fields(fields);
     video_streaming::String full_message = message;
     if (!fields_str.empty()) {
@@ -179,8 +245,6 @@ void video_streaming::Logger::log_with_fields(video_streaming::LogLevel level, c
 }
 
 void video_streaming::Logger::log_authentication_attempt(const video_streaming::String& username, const video_streaming::String& client_ip, bool success, const video_streaming::String& reason) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    
     video_streaming::String status = success ? "SUCCESS" : "FAILED";
     video_streaming::String event_type = "AUTH_ATTEMPT";
     
@@ -189,8 +253,6 @@ void video_streaming::Logger::log_authentication_attempt(const video_streaming::
 
 void video_streaming::Logger::log_session_creation(const video_streaming::String& session_id, const video_streaming::String& username, 
                                  const video_streaming::String& client_ip, const video_streaming::String& target_service) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    
     std::vector<std::pair<video_streaming::String, video_streaming::String>> fields = {
         {"session_id", session_id},
         {"username", username},
@@ -203,8 +265,6 @@ void video_streaming::Logger::log_session_creation(const video_streaming::String
 }
 
 void video_streaming::Logger::log_session_termination(const video_streaming::String& session_id, const video_streaming::String& reason) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    
     std::vector<std::pair<video_streaming::String, video_streaming::String>> fields = {
         {"session_id", session_id},
         {"reason", reason}
@@ -216,8 +276,6 @@ void video_streaming::Logger::log_session_termination(const video_streaming::Str
 
 void video_streaming::Logger::log_access_denied(const video_streaming::String& username, const video_streaming::String& client_ip, 
                               const video_streaming::String& resource, const video_streaming::String& reason) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    
     std::vector<std::pair<video_streaming::String, video_streaming::String>> fields = {
         {"username", username},
         {"client_ip", client_ip},
@@ -233,8 +291,6 @@ void video_streaming::Logger::log_access_denied(const video_streaming::String& u
 }
 
 void video_streaming::Logger::log_security_violation(const video_streaming::String& client_ip, const video_streaming::String& violation_type, const video_streaming::String& details) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    
     std::vector<std::pair<video_streaming::String, video_streaming::String>> fields = {
         {"client_ip", client_ip},
         {"violation_type", violation_type}
@@ -249,8 +305,6 @@ void video_streaming::Logger::log_security_violation(const video_streaming::Stri
 }
 
 void video_streaming::Logger::log_performance_metric(const video_streaming::String& operation, double duration_ms, const video_streaming::String& unit) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    
     std::vector<std::pair<video_streaming::String, video_streaming::String>> fields = {
         {"operation", operation},
         {"duration", std::to_string(duration_ms) + " " + unit}
@@ -261,8 +315,6 @@ void video_streaming::Logger::log_performance_metric(const video_streaming::Stri
 }
 
 void video_streaming::Logger::log_connection_stats(size_t active_connections, size_t total_connections) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    
     std::vector<std::pair<video_streaming::String, video_streaming::String>> fields = {
         {"active_connections", std::to_string(active_connections)},
         {"total_connections", std::to_string(total_connections)}
@@ -273,8 +325,6 @@ void video_streaming::Logger::log_connection_stats(size_t active_connections, si
 }
 
 void video_streaming::Logger::log_throughput(size_t bytes_transferred, const video_streaming::String& direction) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    
     std::vector<std::pair<video_streaming::String, video_streaming::String>> fields = {
         {"bytes_transferred", std::to_string(bytes_transferred)},
         {"direction", direction}
@@ -285,23 +335,18 @@ void video_streaming::Logger::log_throughput(size_t bytes_transferred, const vid
 }
 
 LogLevel video_streaming::Logger::get_level() const noexcept {
-    std::lock_guard<std::mutex> lock(m_mutex);
     return m_level;
 }
 
 void video_streaming::Logger::format_timestamp(bool enable) noexcept {
-    std::lock_guard<std::mutex> lock(m_mutex);
     m_format_timestamp = enable;
 }
 
 void video_streaming::Logger::format_security_event(bool enable) noexcept {
-    std::lock_guard<std::mutex> lock(m_mutex);
     m_format_security_event = enable;
 }
 
 void video_streaming::Logger::log_security_event(const SecurityEvent& event) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    
     std::vector<std::pair<String, String>> fields;
     fields.emplace_back("type", security_event_type_to_string(event.m_type));
     fields.emplace_back("username", event.m_username);
@@ -338,10 +383,7 @@ Logger* LoggerManager::get_logger(const String& name) {
     if (it != m_loggers.end()) {
         return it->second.get();
     }
-    // Auto-create for convenience in tests/examples, or return nullptr
-    // Given the test cases, it seems we might expect auto-creation or nullptr depending on context.
-    // But based on `create_logger` existing, explicit creation is preferred. 
-    // However, `main.cpp` calls `get_logger("main")` without create. So we auto-create.
+    // Auto-create logger if it doesn't exist
     m_loggers[name] = std::make_unique<Logger>(name, m_global_level);
     return m_loggers[name].get();
 }

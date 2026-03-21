@@ -1,129 +1,118 @@
 # ============================================================
-# Stage 1: builder
-# Clang 18 + CMake 3.30 + vcpkg — собирает приложение и тесты
+# Stage 1: builder — компилирует приложение и тесты
 # ============================================================
 FROM ubuntu:24.04 AS builder
 
-ENV DEBIAN_FRONTEND=noninteractive
-ENV VCPKG_ROOT=/opt/vcpkg
-ENV PATH="${VCPKG_ROOT}:${PATH}"
-ENV CC=clang-18
-ENV CXX=clang++-18
+ENV DEBIAN_FRONTEND=noninteractive \
+    VCPKG_ROOT=/opt/vcpkg \
+    PATH="/opt/vcpkg:/usr/local/bin:${PATH}" \
+    CC=clang-20 \
+    CXX=clang++-20 \
+    CXXFLAGS="-stdlib=libc++" \
+    LDFLAGS="-stdlib=libc++ -lc++abi -lpthread"
 
-# --- системные зависимости ---
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    clang-18 \
-    lld-18 \
-    libc++-18-dev \
-    libc++abi-18-dev \
-    cmake \
-    ninja-build \
-    git \
-    curl \
-    zip \
-    unzip \
-    tar \
-    pkg-config \
-    ca-certificates \
-    python3 \
-    python3-pip \
-  && ln -sf /usr/bin/clang-18   /usr/local/bin/clang \
-  && ln -sf /usr/bin/clang++-18 /usr/local/bin/clang++ \
-  && rm -rf /var/lib/apt/lists/*
+    clang-20 lld-20 libc++-20-dev libc++abi-20-dev \
+    clang-tools-20 libpthread-stubs0-dev \
+    libavcodec-dev libavformat-dev libavutil-dev libswscale-dev \
+    ninja-build git curl zip unzip tar pkg-config ca-certificates \
+    python3 python3-pip \
+    && ln -sf /usr/bin/clang-20 /usr/bin/clang \
+    && ln -sf /usr/bin/clang++-20 /usr/bin/clang++ \
+    && ln -sf /usr/bin/clang-scan-deps-20 /usr/bin/clang-scan-deps \
+    && rm -rf /var/lib/apt/lists/*
 
-# --- CMake 3.30 (apt даёт более старый) ---
 RUN curl -fsSL https://github.com/Kitware/CMake/releases/download/v3.30.5/cmake-3.30.5-linux-x86_64.sh \
-      -o /tmp/cmake.sh \
-  && bash /tmp/cmake.sh --skip-license --prefix=/usr/local \
-  && rm /tmp/cmake.sh
+        -o /tmp/cmake.sh \
+    && bash /tmp/cmake.sh --skip-license --prefix=/usr/local \
+    && rm /tmp/cmake.sh
 
-# --- vcpkg ---
-RUN git clone --depth=1 https://github.com/microsoft/vcpkg.git ${VCPKG_ROOT} \
-  && ${VCPKG_ROOT}/bootstrap-vcpkg.sh -disableMetrics
+# Полный клон — без --depth=1, иначе vcpkg не может делать
+# git read-tree для версионированных портов (catch2, spdlog)
+RUN git clone https://github.com/microsoft/vcpkg.git ${VCPKG_ROOT} \
+    && ${VCPKG_ROOT}/bootstrap-vcpkg.sh -disableMetrics \
+    && mkdir -p ${VCPKG_ROOT}/triplets/community
 
-# --- кэшируем установку пакетов отдельным слоем ---
+RUN printf 'set(VCPKG_TARGET_ARCHITECTURE x64)\n\
+set(VCPKG_CRT_LINKAGE dynamic)\n\
+set(VCPKG_LIBRARY_LINKAGE static)\n\
+set(VCPKG_CMAKE_SYSTEM_NAME Linux)\n\
+set(VCPKG_CXX_FLAGS "-stdlib=libc++")\n\
+set(VCPKG_C_FLAGS "")\n\
+set(VCPKG_LINKER_FLAGS "-stdlib=libc++ -lc++abi")\n' \
+    > ${VCPKG_ROOT}/triplets/community/x64-linux-clang.cmake
+
+# vcpkg.json отдельным слоем — кэшируется пока манифест не меняется
 COPY vcpkg.json /src/vcpkg.json
-WORKDIR /src
 RUN ${VCPKG_ROOT}/vcpkg install \
-      --triplet=x64-linux \
-      --feature-flags=manifests \
-  && rm -rf ${VCPKG_ROOT}/buildtrees \
-             ${VCPKG_ROOT}/downloads \
-             ${VCPKG_ROOT}/packages
+    --triplet=x64-linux-clang \
+    --overlay-triplets=${VCPKG_ROOT}/triplets/community \
+    --x-manifest-root=/src \
+    && rm -rf ${VCPKG_ROOT}/buildtrees ${VCPKG_ROOT}/downloads
 
-# --- исходники ---
+# Исходники после зависимостей — изменения кода не инвалидируют слой vcpkg
 COPY . /src
 WORKDIR /src/build
 
 RUN cmake .. \
-      -G Ninja \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake \
-      -DVCPKG_TARGET_TRIPLET=x64-linux \
-      -DBUILD_TESTING=ON \
-  && ninja -j$(nproc)
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake \
+    -DVCPKG_TARGET_TRIPLET=x64-linux-clang \
+    -DVCPKG_OVERLAY_TRIPLETS=${VCPKG_ROOT}/triplets/community \
+    -DCMAKE_CXX_FLAGS="-stdlib=libc++" \
+    -DCMAKE_EXE_LINKER_FLAGS="-stdlib=libc++ -lc++abi -lpthread" \
+    -DCMAKE_THREAD_LIBS_INIT="-lpthread" \
+    -DCMAKE_HAVE_THREADS_LIBRARY=1 \
+    -DCMAKE_USE_PTHREADS_INIT=1 \
+    -DTHREADS_PREFER_PTHREAD_FLAG=OFF \
+    -DBUILD_TESTING=ON \
+    && ninja -j$(nproc)
 
 # ============================================================
-# Stage 2: test-runner
-# Минимальный образ только для прогона тестов + сетевых скриптов
+# Stage 2: test-runner — запускает тесты и сетевые сценарии
 # ============================================================
 FROM ubuntu:24.04 AS test-runner
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # сетевые инструменты для e2e тестов
-    iproute2 \
-    iptables \
-    tcpdump \
-    tshark \
+    libc++1-20 libc++abi1-20 \
+    iproute2 iptables \
+    tcpdump tshark \
     ffmpeg \
     gstreamer1.0-tools \
     gstreamer1.0-plugins-base \
     gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-bad \
     gstreamer1.0-libav \
-    python3 \
-    python3-pip \
-    python3-scapy \
-    # утилиты
-    bc \
-    jq \
-    curl \
-  && rm -rf /var/lib/apt/lists/*
+    python3 python3-pip \
+    bc jq curl \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --no-cache-dir \
-    pyshark \
-    numpy \
-    matplotlib
+RUN pip3 install --no-cache-dir --break-system-packages pyshark numpy
 
-# бинарники из builder
-COPY --from=builder /src/build/video_streaming_app      /app/video_streaming_app
-COPY --from=builder /src/build/video_streaming_tests    /app/video_streaming_tests
+COPY --from=builder /src/build/video_streaming_app   /app/video_streaming_app
+COPY --from=builder /src/build/video_streaming_tests /app/video_streaming_tests
 
-# скрипты тестирования
 COPY tests/scripts/ /app/tests/scripts/
 RUN chmod +x /app/tests/scripts/*.sh
 
 WORKDIR /app
-
-# entrypoint запускает unit-тесты, затем e2e скрипты
 ENTRYPOINT ["/app/tests/scripts/run_all.sh"]
 
 # ============================================================
-# Stage 3: runtime (только приложение, без тестов)
+# Stage 3: runtime — минимальный образ только с приложением
 # ============================================================
 FROM ubuntu:24.04 AS runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libstdc++6 \
-    ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+    libc++1-20 libc++abi1-20 \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /src/build/video_streaming_app /app/video_streaming_app
 
 EXPOSE 5004/udp 5005/udp
-
 ENTRYPOINT ["/app/video_streaming_app"]

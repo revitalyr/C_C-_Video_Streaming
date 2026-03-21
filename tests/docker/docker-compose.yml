@@ -1,5 +1,3 @@
-version: "3.9"
-
 # ---------------------------------------------------------------
 # Сети
 # ---------------------------------------------------------------
@@ -23,7 +21,8 @@ services:
   # --- 1. Сборка (запускается один раз, потом кэш) --------------
   builder:
     build:
-      context: .
+      context: ../..
+      dockerfile: tests/docker/Dockerfile
       target: builder
     image: videostreaming-builder:latest
     # только собираем, не запускаем
@@ -32,14 +31,17 @@ services:
   # --- 2. Unit-тесты (Catch2) ------------------------------------
   unit-tests:
     build:
-      context: .
+      context: ../..
+      dockerfile: tests/docker/Dockerfile
       target: test-runner
     image: videostreaming-tests:latest
     depends_on:
       builder:
         condition: service_completed_successfully
+    entrypoint: []
     networks:
       - clean_net
+      - lossy_net
     cap_add:
       - NET_ADMIN          # нужен для tc netem внутри контейнера
     environment:
@@ -75,13 +77,16 @@ services:
   # --- 4. Приёмник (тестируемое приложение) ----------------------
   receiver:
     build:
-      context: .
+      context: ../..
+      dockerfile: tests/docker/Dockerfile
       target: test-runner
+    image: videostreaming-tests:latest
     depends_on:
       - rtp-source
     networks:
       lossy_net:
         aliases: [receiver]
+    entrypoint: []
     cap_add:
       - NET_ADMIN
     ports:
@@ -99,12 +104,15 @@ services:
   # --- 5. Анализатор RTCP (tshark + Python) ----------------------
   analyzer:
     build:
-      context: .
+      context: ../..
+      dockerfile: tests/docker/Dockerfile
       target: test-runner
+    image: docker-analyzer:latest
     depends_on:
       - receiver
     networks:
       - lossy_net
+    entrypoint: []
     volumes:
       - pcap-dumps:/app/pcap
       - test-results:/app/results
@@ -113,10 +121,13 @@ services:
   # --- 6. Stress-тест: IoT сценарии (слабый CPU, мало памяти) ----
   stress-iot:
     build:
-      context: .
+      context: ../..
+      dockerfile: tests/docker/Dockerfile
       target: test-runner
+    image: videostreaming-tests:latest
     depends_on:
       - rtp-source
+    entrypoint: []
     networks:
       - lossy_net
     cap_add:

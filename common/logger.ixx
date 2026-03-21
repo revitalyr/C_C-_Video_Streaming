@@ -5,10 +5,10 @@ module;
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/daily_file_sink.h>
+#include <fmt/ranges.h>
 
 // Standard library imports
 #include <memory>
-#include <mutex>
 #include <string>
 #include <vector>
 #include <cstddef>
@@ -29,25 +29,14 @@ import video_streaming.std;
 
 export namespace video_streaming {
 
-export struct LogFormat { // Exported so tests can use it
-    std::string_view fmt;
-    std::source_location loc;
-
-    // Конструктор помечен consteval, чтобы захват происходил в момент компиляции в месте вызова
-    template <typename T>
-    requires std::convertible_to<T, std::string_view>
-    constexpr LogFormat(const T& s, std::source_location l = std::source_location::current())
-        : fmt(s), loc(l) {}
-};
-
 // Export Formattable concept for tests
-export template<typename T>
+template<typename T>
 concept Formattable = requires(T t) {
     { std::format("{}", t) } -> std::convertible_to<std::string>;
 };
 
 
-export enum class LogLevel {
+enum class LogLevel {
     TRACE = 0,
     DEBUG = 1,
     INFO = 2,
@@ -57,19 +46,19 @@ export enum class LogLevel {
 };
 
 // Helper types for logging
-export using SessionId = std::string;
-export using ErrorMessage = std::string;
-export using FileName = std::string;
-export using Result = ::Result; // Re-export global Result type
+using SessionId = std::string;
+using ErrorMessage = std::string;
+using FileName = std::string;
+using Result = ::Result; // Re-export global Result type
 
-export enum class SecurityEventType {
+enum class SecurityEventType {
     LOGIN_ATTEMPT,
     ACCESS_DENIED,
     VIOLATION,
     LOGOUT
 };
 
-export struct SecurityEvent {
+struct SecurityEvent {
     SecurityEventType m_type;
     String m_username;
     String m_client_ip;
@@ -77,10 +66,10 @@ export struct SecurityEvent {
 };
 
 // Forward declarations
-export class Logger;
-export class LoggerManager;
+class Logger;
+class LoggerManager;
 
-export class Logger {
+class Logger {
 public:
     Logger(const String& name, LogLevel level = LogLevel::INFO);
     Logger(const String& name, LogLevel level, const String& file_path);
@@ -97,52 +86,45 @@ public:
 
     // Generic log method with source location and formatting support
     template<typename... Args>
-    void log(LogLevel level, const std::source_location& loc, std::format_string<Args...> fmt, Args&&... args) {
-        if (level < m_level) return;
-        log_impl(level, loc, fmt.get(), std::make_format_args(args...));
+    void log(LogLevel level, fmt::format_string<Args...> fmt, Args&&... args) {
+        log_impl(level, std::source_location::current(), fmt, std::forward<Args>(args)...);
     }
 
     // Helper methods for specific levels using source_location
     template<typename... Args>
-    void trace(LogFormat target, Args&&... args) {
-        log_impl(LogLevel::TRACE, target.loc, target.fmt, std::make_format_args(args...));
+    void trace(fmt::format_string<Args...> fmt, Args&&... args) {
+        log_impl(LogLevel::TRACE, std::source_location::current(), fmt, std::forward<Args>(args)...);
     }
 
     template<typename... Args>
-    void debug(LogFormat target, Args&&... args) {
-        log_impl(LogLevel::DEBUG, target.loc, target.fmt, std::make_format_args(args...));
+    void debug(fmt::format_string<Args...> fmt, Args&&... args) {
+        log_impl(LogLevel::DEBUG, std::source_location::current(), fmt, std::forward<Args>(args)...);
     }
 
     template<typename... Args>
-    void info(LogFormat target, Args&&... args) {
-       log_impl(LogLevel::INFO, target.loc, target.fmt, std::make_format_args(args...));
+    void info(fmt::format_string<Args...> fmt, Args&&... args) {
+       log_impl(LogLevel::INFO, std::source_location::current(), fmt, std::forward<Args>(args)...);
     }
 
     template<typename... Args>
-    void warn(LogFormat target, Args&&... args) {
-        log_impl(LogLevel::WARN, target.loc, target.fmt, std::make_format_args(args...));
+    void warn(fmt::format_string<Args...> fmt, Args&&... args) {
+        log_impl(LogLevel::WARN, std::source_location::current(), fmt, std::forward<Args>(args)...);
     }
 
     template<typename... Args>
-    void error(LogFormat target, Args&&... args) {
-        log_impl(LogLevel::ERROR, target.loc, target.fmt, std::make_format_args(args...));
+    void error(fmt::format_string<Args...> fmt, Args&&... args) {
+        log_impl(LogLevel::ERROR, std::source_location::current(), fmt, std::forward<Args>(args)...);
     }
 
     template<typename... Args>
-    void critical(LogFormat target, Args&&... args) {
-       log_impl(LogLevel::CRITICAL, target.loc, target.fmt, std::make_format_args(args...));
+    void critical(fmt::format_string<Args...> fmt, Args&&... args) {
+       log_impl(LogLevel::CRITICAL, std::source_location::current(), fmt, std::forward<Args>(args)...);
     }
 
     // Range logging
     template<std::ranges::range R>
-    void info_range(LogFormat msg, R&& range) {
-        std::string formatted = "[";
-        for (const auto& item : range) {
-            if (formatted.length() > 1) formatted += ", ";
-            formatted += std::format("{}", item);
-        }
-        formatted += "]";
-        info(LogFormat("{} {}"), msg.fmt, formatted);
+    void info_range(StringView title, R&& range) {
+        info("{}: {}", title, range);
     }
     
     // Additional logging methods used in implementation
@@ -160,6 +142,7 @@ public:
     // Sink management
     void add_file_sink(const String& filename, size_t max_file_size, size_t max_files);
     void add_daily_file_sink(const String& filename, int hour, int minute);
+    void add_udp_sink(const String& ip, Port port);
     void enable_console_output(bool enable);
     
     // Static helpers
@@ -177,7 +160,16 @@ public:
     void set_pattern(const String& pattern);
 
 private:
-    void log_impl(LogLevel level, const std::source_location& loc, std::string_view fmt, std::format_args args);
+    template<typename... Args>
+    void log_impl(LogLevel level, const std::source_location& loc, fmt::format_string<Args...> fmt, Args&&... args) {
+        if (level < m_level) return;
+        // Pass source location and arguments directly to spdlog's async logger
+        // to avoid formatting on the calling thread.
+        m_logger->log({loc.file_name(), static_cast<int>(loc.line()), loc.function_name()},
+                      convert_log_level(level),
+                      fmt, // This is now a fmt::format_string
+                      std::forward<Args>(args)...);
+    }
     void initialize_default_sinks(const String& name, LogLevel level, const String& log_file);
 
     String m_name;
@@ -186,10 +178,9 @@ private:
     bool m_format_timestamp{true};
     bool m_format_security_event{true};
     String m_format_fields{"default"};
-    mutable std::mutex m_mutex;
 };
 
-export class LoggerManager {
+class LoggerManager {
 public:
     static LoggerManager& instance();
     

@@ -1,4 +1,18 @@
+#if __has_include(<print>)
 #include <print>
+#else
+#include <fmt/core.h>
+#include <fmt/ranges.h>
+namespace std {
+    using fmt::print;
+    using fmt::println;
+    using fmt::format;
+}
+#endif
+
+#include <charconv> // Required for std::from_chars
+#include <expected> // Required for std::expected
+
 #include <iostream>
 #include <chrono>
 #include <thread>
@@ -7,25 +21,122 @@
 #include <barrier>
 #include <format>
 #include <exception>
+#include <string>
+#include <fstream>
+
+#include <spdlog/spdlog.h>
+
+#include "../common/types.hpp"
 
 import video_streaming.logger;
 import video_streaming.interfaces;
 import video_streaming.std;
+import video_streaming.pipeline;
 
 using namespace video_streaming;
 
-// C++26 демонстрация возможностей модулей и новых фич
-int main() {
-    try {
-        // C++26: Использование consteval для compile-time оптимизации
-        constexpr LogFormat kAppStart("Video Streaming System starting...");
-        constexpr LogFormat kAppComplete("Video Streaming System completed successfully");
+// RAII wrapper for spdlog shutdown
+struct SpdlogShutdown {
+    ~SpdlogShutdown() {
+        // Ensure all async logs are flushed before exit
+        spdlog::shutdown();
+    }
+};
+
+// Simple command line argument parsing
+struct AppConfig {
+    bool run_pipeline = false;
+    Port rtp_port = 5004;
+    Port rtcp_port = 5005;
+    std::string metrics_out;
+};
+
+AppConfig parse_args(int argc, char* argv[]) {
+    auto parse_port = [](std::string_view s) -> std::expected<Port, std::string> {
+        Port value{};
+        auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), value);
+        if (ec != std::errc{})
+            return std::unexpected(std::format("'{}' is not a valid port", s));
+        if (value < 1)
+            return std::unexpected(std::format("port {} must be >= 1", value));
+        return value;
+    };
+    AppConfig config;
+    std::vector<std::string> args(argv, argv + argc);
+    
+    for (size_t i = 1; i < args.size(); ++i) {
+        if (args[i] == "--rtp-port" && i + 1 < args.size()) {
+            auto rtp = parse_port(args[++i]);
+            if (!rtp) throw std::runtime_error(rtp.error());
+            config.rtp_port = *rtp;
+            config.run_pipeline = true;
+        } else if (args[i] == "--rtcp-port" && i + 1 < args.size()) {
+            auto rtcp = parse_port(args[++i]);
+            if (!rtcp) throw std::runtime_error(rtcp.error());
+            config.rtcp_port = *rtcp;
+        } else if (args[i] == "--metrics-out" && i + 1 < args.size()) {
+            config.metrics_out = args[++i];
+            config.run_pipeline = true;
+        }
+    }
+    return config;
+}
+
+void run_pipeline_mode(const AppConfig& config) {
+    auto& manager = LoggerManager::instance();
+    if (!manager.get_logger("main")) {
+        manager.create_logger("main");
+    }
+    auto* logger = manager.get_logger("main");
+    
+    logger->info("Running in Pipeline Mode"); // No LogFormat
+    logger->info("RTP Port: {}", config.rtp_port);
+    
+    PipelineConfig pconfig;
+    pconfig.src_port = config.rtp_port;
+    pconfig.enable_sender = false; // E2E test mode acts as receiver
+    pconfig.enable_receiver = true;
+    
+    Pipeline pipeline(pconfig);
+    if (!pipeline.start()) {
+        logger->error("Failed to start pipeline");
+        return;
+    }
+    
+    // Run until interrupted (or for a fixed duration if needed, but wrapper handles timeout)
+    // Here we just sleep in a loop and write metrics
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
         
+        if (!config.metrics_out.empty()) {
+            auto metrics = pipeline.get_metrics();
+            std::ofstream out(config.metrics_out);
+            out << std::format("{{\"glass_to_glass_ms\": {:.2f}, \"jitter_buffer_depth_ms\": {:.2f}}}", 
+                               metrics.glass_to_glass_ms, metrics.jitter_buffer_depth_ms);
+        }
+    }
+}
+
+// C++26 демонстрация возможностей модулей и новых фич
+int main(int argc, char* argv[]) {
+    SpdlogShutdown spdlog_shutdown_guard; // Destructor will be called on any exit path
+
+    try {
+        AppConfig config = parse_args(argc, argv);
+        if (config.run_pipeline) {
+            run_pipeline_mode(config);
+            return 0;
+        }
+
+        // C++26: Использование consteval для compile-time оптимизации
         // C++26: Perfect forwarding для создания логгера
         auto& manager = LoggerManager::instance();
+        if (!manager.get_logger("main")) {
+            manager.create_logger("main");
+        }
         auto* main_logger = manager.get_logger("main");
         
-        main_logger->info(kAppStart);
+        main_logger->info("Video Streaming System starting...");
         main_logger->info("C++26 modules with spdlog integration working!");
         
         // C++26: Демонстрация ranges и structured bindings
@@ -38,8 +149,9 @@ int main() {
         };
         
         main_logger->info("System components loaded:");
-        for (const auto& [index, component] : components | std::views::enumerate) {
-            main_logger->info("  {}. {}", index + 1, component);
+        int component_index = 0;
+        for (const auto& component : components) {
+            main_logger->info("  {}. {}", ++component_index, component);
         }
         
         // C++26: Демонстрация advanced логирования
@@ -47,7 +159,7 @@ int main() {
         
         // C++26: Логирование ranges
         Integers numbers = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-        main_logger->info_range("Numbers range", numbers);
+        main_logger->info_range("Numbers range", numbers); // This call is now correct
         
         // C++26: Perfect forwarding с различными типами
         const int int_val = 42;
@@ -68,7 +180,11 @@ int main() {
         
         for (int i = 0; i < kNumThreads; ++i) {
             threads.emplace_back([&manager, i, &sync_point] {
-                auto* thread_logger = manager.get_logger(std::format("worker_{}", i));
+                const auto logger_name = std::format("worker_{}", i);
+                if (!manager.get_logger(logger_name)) {
+                    manager.create_logger(logger_name);
+                }
+                auto* thread_logger = manager.get_logger(logger_name);
                 thread_logger->info("Thread {} started", i);
                 
                 // Синхронизация всех потоков
@@ -142,14 +258,12 @@ int main() {
         constexpr int kBenchmarkMessages = 1000;
         for (int i = 0; i < kBenchmarkMessages; ++i) {
             main_logger->info("Benchmark message {}", i);
-            main_logger->info(LogFormat("Benchmark message {}"), i);
         }
         
         auto end_time = HighResClock::now();
         auto duration = std::chrono::duration_cast<Microseconds>(end_time - start_time);
         
         main_logger->info("Logged {} messages in {} μs ({} msg/sec)", 
-        main_logger->info(LogFormat("Logged {} messages in {} μs ({} msg/sec)"), 
             kBenchmarkMessages, 
             duration.count(), 
             (kBenchmarkMessages * 1000000.0) / duration.count());
@@ -161,7 +275,7 @@ int main() {
         main_logger->info_range("Logger names", logger_names);
         
         // C++26: Финальное сообщение
-        main_logger->info(kAppComplete);
+        main_logger->info("Video Streaming System completed successfully");
         
         // C++26: Structured bindings для финальной статистики
         const auto [total_loggers, final_duration] = std::pair{
@@ -189,10 +303,10 @@ int main() {
         return 0;
         
     } catch (const Exception& e) {
-        std::println(std::cerr, "Fatal error: {}", e.what());
+        std::println(stderr, "Fatal error: {}", e.what());
         return 1;
     } catch (...) {
-        std::println(std::cerr, "Unknown fatal error occurred");
+        std::println(stderr, "Unknown fatal error occurred");
         return 1;
     }
 }

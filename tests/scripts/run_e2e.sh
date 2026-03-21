@@ -69,7 +69,7 @@ run_scenario() {
     tshark -i eth0 \
         -f "udp port ${RTP_PORT} or udp port ${RTCP_PORT}" \
         -w "${pcap_file}" \
-        --snaplen=1500 \
+        -s 1500 \
         -q &
     TSHARK_PID=$!
 
@@ -88,13 +88,13 @@ run_scenario() {
     python3 /app/tests/scripts/analyze_pcap.py \
         --pcap "${pcap_file}" \
         --rtp-port "${RTP_PORT}" \
-        --out "${RESULTS_DIR}/${profile}_pcap_stats.json"
+        --out "${RESULTS_DIR}/${profile}_pcap_stats.json" || return 1
 
     # Проверяем пороговые значения для данного профиля
     python3 /app/tests/scripts/check_thresholds.py \
         --profile "${profile}" \
         --metrics "${metrics_file}" \
-        --pcap-stats "${RESULTS_DIR}/${profile}_pcap_stats.json"
+        --pcap-stats "${RESULTS_DIR}/${profile}_pcap_stats.json" || return 1
 
     echo "[e2e] Scenario ${profile} done"
 }
