@@ -64,17 +64,9 @@ target_link_libraries(pipeline_lib PUBLIC video_streaming_impl)
 add_executable(test_sender_receiver tests/test_sender_receiver.cpp)
 target_link_libraries(test_sender_receiver PRIVATE Threads::Threads)
 
-# RTSP тестовый клиент для реальных источников
-add_executable(rtsp_test_client src/rtsp_test_client.cpp)
-target_link_libraries(rtsp_test_client PRIVATE Threads::Threads)
-
 # Настоящий RTSP клиент для реальных источников
 add_executable(real_rtsp_client src/real_rtsp_client.cpp)
 target_link_libraries(real_rtsp_client PRIVATE Threads::Threads ws2_32)
-
-# Упрощенный реальный клиент с демонстрацией
-add_executable(simple_real_client src/simple_real_client.cpp)
-target_link_libraries(simple_real_client PRIVATE Threads::Threads ws2_32)
 
 # Главное приложение
 add_executable(video_streaming_app src/main.cpp)

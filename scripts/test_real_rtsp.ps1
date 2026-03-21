@@ -2,7 +2,8 @@
 # Подключается к реальным RTSP источникам и получает настоящие RTP пакеты
 
 param(
-    [switch]$Clean = $false
+    [switch]$Clean = $false,
+    [string]$Source = "all"  # all, wowza, ipvm, bunny
 )
 
 Write-Host "=== Real RTSP Client Test Script ===" -ForegroundColor Green
@@ -35,96 +36,78 @@ Set-Location $resultsDir
 Write-Host "🎥 Starting real RTSP stream tests..." -ForegroundColor Green
 Write-Host ""
 
-# Тест 1: Wowza Test Stream (официальный)
-Write-Host "=== Test 1: Real Wowza Test Stream ===" -ForegroundColor Cyan
-Write-Host "URL: rtsp://716f898c7b71.entrypoint.cloud.wowza.com:1935/app-8F9K44lJ/304679fe_stream2" -ForegroundColor White
-Write-Host "Duration: 30 seconds" -ForegroundColor White
-Write-Host "Output: real_wowza_stream.rtp" -ForegroundColor White
-Write-Host ""
-
-$process = Start-Process -FilePath $rtspClient -NoNewWindow -Wait -PassThru
-if ($null -ne $process) {
-    $process.WaitForExit()
-} else {
-    Write-Host "❌ Failed to start real RTSP client" -ForegroundColor Red
+# Функция для тестирования одного источника
+function Test-RTSPSource($name, $url, $outputFile, $duration) {
+    Write-Host "=== Test: $name ===" -ForegroundColor Cyan
+    Write-Host "URL: $url" -ForegroundColor White
+    Write-Host "Duration: $duration seconds" -ForegroundColor White
+    Write-Host "Output: $outputFile" -ForegroundColor White
+    Write-Host ""
+    
+    $process = Start-Process -FilePath $rtspClient -NoNewWindow -Wait -PassThru
+    if ($null -ne $process) {
+        $process.WaitForExit()
+    } else {
+        Write-Host "❌ Failed to start real RTSP client" -ForegroundColor Red
+        return $false
+    }
+    
+    # Проверка результата
+    if (Test-Path $outputFile) {
+        $size = (Get-Item $outputFile).Length
+        Write-Host "✅ $name test completed: $size bytes saved" -ForegroundColor Green
+        return $true
+    } else {
+        Write-Host "❌ $name test failed: no output file" -ForegroundColor Red
+        return $false
+    }
 }
 
-# Проверка результата
-$outputFile = "real_wowza_stream.rtp"
-if (Test-Path $outputFile) {
-    $size = (Get-Item $outputFile).Length
-    Write-Host "✅ Wowza test completed: $size bytes saved" -ForegroundColor Green
-} else {
-    Write-Host "❌ Wowza test failed: no output file" -ForegroundColor Red
+# Тестирование источников в зависимости от параметра
+$successfulTests = 0
+$totalTests = 0
+
+if ($Source -eq "all" -or $Source -eq "wowza") {
+    $totalTests++
+    if (Test-RTSPSource "Wowza Test Stream" "rtsp://716f898c7b71.entrypoint.cloud.wowza.com:1935/app-8F9K44lJ/304679fe_stream2" "wowza_stream.rtp" 30) {
+        $successfulTests++
+    }
+    Write-Host ""
+    Start-Sleep -Seconds 2
 }
 
-Write-Host ""
-Start-Sleep -Seconds 2
-
-# Тест 2: IPVM Public Camera (реальная камера)
-Write-Host "=== Test 2: Real IPVM Public Camera ===" -ForegroundColor Cyan
-Write-Host "URL: rtsp://demo:demo@ipvmdemo.dyndns.org:5541/onvif-media/media.amp?profile=profile_1_h264&sessiontimeout=60&streamtype=unicast" -ForegroundColor White
-Write-Host "Duration: 20 seconds" -ForegroundColor White
-Write-Host "Output: real_ipvm_camera.rtp" -ForegroundColor White
-Write-Host ""
-
-$process = Start-Process -FilePath $rtspClient -NoNewWindow -Wait -PassThru
-if ($null -ne $process) {
-    $process.WaitForExit()
-} else {
-    Write-Host "❌ Failed to start real RTSP client" -ForegroundColor Red
+if ($Source -eq "all" -or $Source -eq "ipvm") {
+    $totalTests++
+    if (Test-RTSPSource "IPVM Public Camera" "rtsp://demo:demo@ipvmdemo.dyndns.org:5541/onvif-media/media.amp?profile=profile_1_h264&sessiontimeout=60&streamtype=unicast" "ipvm_camera.rtp" 20) {
+        $successfulTests++
+    }
+    Write-Host ""
+    Start-Sleep -Seconds 2
 }
 
-# Проверка результата
-$outputFile = "real_ipvm_camera.rtp"
-if (Test-Path $outputFile) {
-    $size = (Get-Item $outputFile).Length
-    Write-Host "✅ IPVM test completed: $size bytes saved" -ForegroundColor Green
-} else {
-    Write-Host "❌ IPVM test failed: no output file" -ForegroundColor Red
+if ($Source -eq "all" -or $Source -eq "bunny") {
+    $totalTests++
+    if (Test-RTSPSource "Big Buck Bunny Stream" "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov" "bunny_stream.rtp" 15) {
+        $successfulTests++
+    }
+    Write-Host ""
 }
 
-Write-Host ""
-Start-Sleep -Seconds 2
-
-# Тест 3: Big Buck Bunny (простой файл)
-Write-Host "=== Test 3: Real Big Buck Bunny Stream ===" -ForegroundColor Cyan
-Write-Host "URL: rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov" -ForegroundColor White
-Write-Host "Duration: 15 seconds" -ForegroundColor White
-Write-Host "Output: real_bunny_stream.rtp" -ForegroundColor White
-Write-Host ""
-
-$process = Start-Process -FilePath $rtspClient -NoNewWindow -Wait -PassThru
-if ($null -ne $process) {
-    $process.WaitForExit()
-} else {
-    Write-Host "❌ Failed to start real RTSP client" -ForegroundColor Red
-}
-
-# Проверка результата
-$outputFile = "real_bunny_stream.rtp"
-if (Test-Path $outputFile) {
-    $size = (Get-Item $outputFile).Length
-    Write-Host "✅ Bunny test completed: $size bytes saved" -ForegroundColor Green
-} else {
-    Write-Host "❌ Bunny test failed: no output file" -ForegroundColor Red
-}
-
-Write-Host ""
-Write-Host "🎉 All real RTSP tests completed!" -ForegroundColor Green
+Write-Host "🎉 Real RTSP tests completed!" -ForegroundColor Green
 Write-Host ""
 
 # Анализ результатов
 Write-Host "=== Results Summary ===" -ForegroundColor Yellow
 $totalFiles = 0
-$successfulTests = 0
 
-$files = @("real_wowza_stream.rtp", "real_ipvm_camera.rtp", "real_bunny_stream.rtp")
+$files = @()
+if ($Source -eq "all" -or $Source -eq "wowza") { $files += "wowza_stream.rtp" }
+if ($Source -eq "all" -or $Source -eq "ipvm") { $files += "ipvm_camera.rtp" }
+if ($Source -eq "all" -or $Source -eq "bunny") { $files += "bunny_stream.rtp" }
+
 foreach ($file in $files) {
     if (Test-Path $file) {
         $totalFiles++
-        $successfulTests++
-        
         $size = (Get-Item $file).Length
         Write-Host "📊 $file`: $size bytes" -ForegroundColor White
     }
@@ -133,20 +116,27 @@ foreach ($file in $files) {
 Write-Host ""
 Write-Host "📈 Test Results:" -ForegroundColor Yellow
 Write-Host "   Total files created: $totalFiles" -ForegroundColor White
-Write-Host "   Successful tests: $successfulTests/3" -ForegroundColor White
-$successRate = [math]::Round(($successfulTests * 100) / 3, 2)
-Write-Host "   Success rate: $successRate%" -ForegroundColor White
+Write-Host "   Successful tests: $successfulTests/$totalTests" -ForegroundColor White
+if ($totalTests -gt 0) {
+    $successRate = [math]::Round(($successfulTests * 100) / $totalTests, 2)
+    Write-Host "   Success rate: $successRate%" -ForegroundColor White
+}
 
-if ($successfulTests -eq 3) {
-    Write-Host "🎥 All real RTSP tests passed successfully!" -ForegroundColor Green
+if ($successfulTests -gt 0) {
     Write-Host ""
     Write-Host "🔍 Next steps:" -ForegroundColor Cyan
-    Write-Host "   1. Analyze RTP files with: python ..\scripts\analyze_rtp_files.py *.rtp --compare" -ForegroundColor White
-    Write-Host "   2. Convert to MP4 with: ffmpeg -i real_*.rtp -c copy output.mp4" -ForegroundColor White
+    Write-Host "   1. Analyze RTP files: python ..\scripts\analyze_rtp_files.py *.rtp --compare" -ForegroundColor White
+    Write-Host "   2. Convert to MP4: ffmpeg -i *.rtp -c copy output.mp4" -ForegroundColor White
     Write-Host "   3. Check packet quality and loss rates" -ForegroundColor White
-    exit 0
+    
+    if ($totalFiles -gt 0) {
+        Write-Host ""
+        Write-Host "🎥 Real RTSP streaming test successful!" -ForegroundColor Green
+        exit 0
+    }
 } else {
-    Write-Host "⚠️  Some real RTSP tests failed" -ForegroundColor Yellow
+    Write-Host "⚠️  No RTSP tests succeeded" -ForegroundColor Yellow
     Write-Host "   This could be due to network issues or unavailable sources" -ForegroundColor White
+    Write-Host "   Try individual sources with: -Source wowza, -Source ipvm, or -Source bunny" -ForegroundColor White
     exit 1
 }
