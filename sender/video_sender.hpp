@@ -8,7 +8,7 @@
 #include <condition_variable>
 #include <chrono>
 
-#include "../common/logger.hpp"
+import video_streaming.logger;
 #include "../media/frame.hpp"
 #include "../media/synthetic_encoder.hpp"
 #include "../network/udp_socket.hpp"
@@ -30,12 +30,12 @@ public:
     explicit VideoSender(const Config& config);
     ~VideoSender();
 
-    // Основные методы управления
+    // Main management methods
     bool start();
     void stop();
     bool is_running() const noexcept { return m_running.load(); }
 
-    // Статистика
+    // Statistics
     struct Stats {
         uint64_t frames_sent = 0;
         uint64_t packets_sent = 0;
@@ -48,39 +48,39 @@ public:
     Stats get_stats() const;
 
 private:
-    // Основной рабочий цикл
+    // Main worker loop
     void sender_loop();
     
-    // Генерация видео кадров
+    // Generate video frames
     std::unique_ptr<VideoFrame> generate_frame();
     
-    // Отправка кадра
+    // Send frame
     bool send_frame(const VideoFrame& frame);
 
 private:
     Config m_config;
     std::unique_ptr<Logger> m_logger;
     
-    // Компоненты
+    // Components
     std::unique_ptr<SyntheticH264Encoder> m_encoder;
     std::unique_ptr<UdpSocket> m_socket;
     std::unique_ptr<H264Packetizer> m_packetizer;
     
-    // Управление потоками
+    // Thread management
     std::thread m_sender_thread;
     std::atomic<bool> m_running{false};
     std::atomic<bool> m_stop_requested{false};
     
-    // Очередь кадров
+    // Frame queue
     std::queue<std::unique_ptr<VideoFrame>> m_frame_queue;
     mutable std::mutex m_queue_mutex;
     std::condition_variable m_queue_cv;
     
-    // Статистика
+    // Statistics
     mutable std::mutex m_stats_mutex;
     Stats m_stats;
     
-    // Тайминги
+    // Timing
     std::chrono::steady_clock::time_point m_start_time;
     std::chrono::steady_clock::time_point m_last_frame_time;
 };

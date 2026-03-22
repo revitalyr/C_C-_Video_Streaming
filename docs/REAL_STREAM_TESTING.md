@@ -1,27 +1,27 @@
-# 🎥 Тестирование RTSP/RTP Видеостриминга с Реальными Источниками
+# 🎥 RTSP/RTP Video Streaming Testing with Real Sources
 
-Этот документ описывает как тестировать видеостриминговый проект с использованием реальных публичных RTSP источников.
+This document describes how to test the video streaming project using real public RTSP sources.
 
-## Обзор
+## Overview
 
-Проект включает в себя:
-- **RealRTSPClient** - клиент для подключения к реальным RTSP потокам
-- **Полная реализация RTSP протокола** (OPTIONS, DESCRIBE, SETUP, PLAY)
-- **RTP Packet Processing** - обработка RTP пакетов с сохранением в файл
-- **Статистика и мониторинг** - отслеживание FPS, потерь, производительности
-- **Многопоточная архитектура** - эффективная обработка данных
+The project includes:
+- **RealRTSPClient** - client for connecting to real RTSP streams
+- **Full RTSP protocol implementation** (OPTIONS, DESCRIBE, SETUP, PLAY)
+- **RTP Packet Processing** - processing RTP packets and saving to file
+- **Statistics and monitoring** - tracking FPS, packet loss, performance
+- **Multi-threaded architecture** - efficient data processing
 
-## Быстрый старт
+## Quick Start
 
-### 1. Сборка проекта
+### 1. Building the project
 ```bash
-# Сборка RTSP клиента
+# Build RTSP client
 cmake --build build --target real_rtsp_client
 
-# Запуск тестов (Windows)
+# Run tests (Windows)
 .\scripts\test_real_rtsp.ps1
 
-# Запуск конкретного источника
+# Run specific source
 .\scripts\test_real_rtsp.ps1 -Source wowza
 ```
 

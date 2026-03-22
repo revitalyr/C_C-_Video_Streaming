@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Анализатор RTP файлов для видеостриминга
-Анализирует сохраненные RTP пакеты и выводит статистику
+RTP File Analyzer for Video Streaming
+Analyzes saved RTP packets and prints statistics
 """
 
 import os
@@ -30,8 +30,8 @@ class RTPAnalyzer:
         }
         
     def analyze(self):
-        """Анализ RTP файла"""
-        print(f"Анализ файла: {self.filename}")
+        """RTP file analysis"""
+        print(f"Analyzing file: {self.filename}")
         print("=" * 50)
         
         try:
@@ -40,31 +40,31 @@ class RTPAnalyzer:
                 last_sequence = -1
                 
                 while True:
-                    # Чтение RTP заголовка (минимальные 12 байт)
+                    # Read RTP header (minimum 12 bytes)
                     header_data = f.read(12)
                     if len(header_data) < 12:
                         break
-                    
-                    # Парсинг RTP заголовка
+
+                    # Parse RTP header
                     if len(header_data) == 12:
                         self._parse_rtp_header(header_data, packet_count, last_sequence)
                         packet_count += 1
                         last_sequence = self.stats['sequence_numbers'][-1] if self.stats['sequence_numbers'] else -1
                         
-                        # Чтение полезной нагрузки
-                        payload_size = 1400  # Типичный размер
+                        # Read payload
+                        payload_size = 1400  # Typical size
                         payload = f.read(payload_size)
                         if payload:
                             self.stats['total_bytes'] += len(header_data) + len(payload)
                             self.stats['packet_sizes'].append(len(header_data) + len(payload))
                     
-                    # Ограничение для больших файлов
+                    # Limit for large files
                     if packet_count > 10000:
-                        print(f"Ограничение анализа: {packet_count} пакетов")
+                        print(f"Analysis limit: {packet_count} packets")
                         break
                         
         except Exception as e:
-            print(f"Ошибка при анализе файла: {e}")
+            print(f"Error analyzing file: {e}")
             return False
             
         self._calculate_statistics()
@@ -72,8 +72,8 @@ class RTPAnalyzer:
         return True
         
     def _parse_rtp_header(self, header_data, packet_count, last_sequence):
-        """Парсинг RTP заголовка"""
-        # RTP заголовок структура:
+        """Parse RTP header"""
+        # RTP Header Structure:
         # 0                   1                   2                   3
         # 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
         # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -84,11 +84,11 @@ class RTPAnalyzer:
         # |           synchronization source (SSRC) identifier          |
         # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
         
-        # Распаковка заголовка (big-endian)
+        # Unpack header (big-endian)
         first_byte, second_byte = struct.unpack('!BB', header_data[:2])
         sequence, timestamp, ssrc = struct.unpack('!HII', header_data[2:12])
         
-        # Извлечение полей
+        # Extract fields
         version = (first_byte >> 6) & 0x03
         padding = (first_byte >> 5) & 0x01
         extension = (first_byte >> 4) & 0x01
@@ -96,7 +96,7 @@ class RTPAnalyzer:
         marker = (second_byte >> 7) & 0x01
         payload_type = second_byte & 0x7F
         
-        # Сохранение статистики
+        # Save statistics
         self.stats['total_packets'] += 1
         self.stats['sequence_numbers'].append(sequence)
         self.stats['timestamps'].append(timestamp)
@@ -104,27 +104,27 @@ class RTPAnalyzer:
         if self.stats['ssrc'] is None:
             self.stats['ssrc'] = ssrc
         elif self.stats['ssrc'] != ssrc:
-            print(f"Предупреждение: разный SSRC: {self.stats['ssrc']} vs {ssrc}")
+            print(f"Warning: different SSRC: {self.stats['ssrc']} vs {ssrc}")
             
         if self.stats['first_timestamp'] is None:
             self.stats['first_timestamp'] = timestamp
         self.stats['last_timestamp'] = timestamp
         
-        # Анализ последовательности
+        # Sequence analysis
         if packet_count > 0:
             expected_sequence = (last_sequence + 1) % 0x10000
             if sequence == expected_sequence:
-                pass  # Нормальный случай
+                pass  # Normal case
             elif sequence == last_sequence:
                 self.stats['duplicate_packets'] += 1
             elif sequence > expected_sequence:
                 self.stats['packet_loss'] += sequence - expected_sequence
             else:
-                # Цикл sequence number
+                # Sequence number cycle
                 self.stats['out_of_order_packets'] += 1
         
     def _calculate_statistics(self):
-        """Расчет дополнительной статистики"""
+        """Calculate additional statistics"""
         if self.stats['packet_sizes']:
             self.stats['avg_packet_size'] = sum(self.stats['packet_sizes']) / len(self.stats['packet_sizes'])
             self.stats['min_packet_size'] = min(self.stats['packet_sizes'])
@@ -134,7 +134,7 @@ class RTPAnalyzer:
             self.stats['min_packet_size'] = 0
             self.stats['max_packet_size'] = 0
             
-        # Расчет длительности
+        # Calculate duration
         if self.stats['timestamps'] and len(self.stats['timestamps']) > 1:
             time_diff = self.stats['last_timestamp'] - self.stats['first_timestamp']
             self.stats['duration_seconds'] = time_diff / 90000.0  # 90kHz clock
@@ -146,7 +146,7 @@ class RTPAnalyzer:
             self.stats['duration_seconds'] = 0
             self.stats['fps'] = 0
             
-        # Расчет процента потерь
+        # Calculate loss percentage
         if self.stats['total_packets'] > 0:
             total_expected = self.stats['total_packets'] + self.stats['packet_loss']
             self.stats['packet_loss_percent'] = (self.stats['packet_loss'] / total_expected) * 100
@@ -154,64 +154,64 @@ class RTPAnalyzer:
             self.stats['packet_loss_percent'] = 0
             
     def _print_results(self):
-        """Вывод результатов анализа"""
-        print(f"📊 Статистика файла: {self.filename}")
+        """Print analysis results"""
+        print(f"📊 File statistics: {self.filename}")
         print("-" * 50)
         
-        # Базовая статистика
-        print(f"📦 Общее количество пакетов: {self.stats['total_packets']}")
-        print(f"📏 Общий размер: {self.stats['total_bytes']:,} байт")
-        print(f"📈 Средний размер пакета: {self.stats['avg_packet_size']:.1f} байт")
-        print(f"📊 Размер пакетов: {self.stats['min_packet_size']} - {self.stats['max_packet_size']} байт")
+        # Basic statistics
+        print(f"📦 Total packets: {self.stats['total_packets']}")
+        print(f"📏 Total size: {self.stats['total_bytes']:,} bytes")
+        print(f"📈 Average packet size: {self.stats['avg_packet_size']:.1f} bytes")
+        print(f"📊 Packet sizes: {self.stats['min_packet_size']} - {self.stats['max_packet_size']} bytes")
         
-        # Временная статистика
-        print(f"⏱️  Длительность: {self.stats['duration_seconds']:.2f} секунд")
+        # Time statistics
+        print(f"⏱️  Duration: {self.stats['duration_seconds']:.2f} seconds")
         print(f"🎬 FPS: {self.stats['fps']:.2f}")
         
-        # Статистика потерь
-        print(f"❌ Потерянные пакеты: {self.stats['packet_loss']}")
-        print(f"📉 Процент потерь: {self.stats['packet_loss_percent']:.2f}%")
-        print(f"🔄 Дубликаты: {self.stats['duplicate_packets']}")
-        print(f"🔀 Не по порядку: {self.stats['out_of_order_packets']}")
+        # Loss statistics
+        print(f"❌ Lost packets: {self.stats['packet_loss']}")
+        print(f"📉 Loss percentage: {self.stats['packet_loss_percent']:.2f}%")
+        print(f"🔄 Duplicates: {self.stats['duplicate_packets']}")
+        print(f"🔀 Out of order: {self.stats['out_of_order_packets']}")
         
-        # RTP информация
+        # RTP information
         print(f"🆔 SSRC: 0x{self.stats['ssrc']:08x}" if self.stats['ssrc'] else "🆔 SSRC: N/A")
         
-        # Оценка качества
-        print("\n🎯 Оценка качества:")
+        # Quality score
+        print("\n🎯 Quality Score:")
         quality_score = self._calculate_quality_score()
-        print(f"⭐ Общая оценка: {quality_score}/100")
+        print(f"⭐ Overall score: {quality_score}/100")
         
         if quality_score >= 90:
-            print("✅ Отличное качество стриминга")
+            print("✅ Excellent streaming quality")
         elif quality_score >= 75:
-            print("✅ Хорошее качество стриминга")
+            print("✅ Good streaming quality")
         elif quality_score >= 60:
-            print("⚠️  Удовлетворительное качество")
+            print("⚠️  Satisfactory quality")
         else:
-            print("❌ Плохое качество стриминга")
+            print("❌ Poor streaming quality")
             
         print("\n" + "=" * 50 + "\n")
         
     def _calculate_quality_score(self):
-        """Расчет оценки качества стриминга"""
+        """Calculate streaming quality score"""
         score = 100
         
-        # Штраф за потери пакетов
+        # Penalty for packet loss
         if self.stats['packet_loss_percent'] > 0:
             score -= min(self.stats['packet_loss_percent'] * 2, 50)
             
-        # Штраф за дубликаты
+        # Penalty for duplicates
         if self.stats['duplicate_packets'] > 0:
             duplicate_percent = (self.stats['duplicate_packets'] / self.stats['total_packets']) * 100
             score -= min(duplicate_percent, 20)
             
-        # Штраф за неупорядоченные пакеты
+        # Penalty for out-of-order packets
         if self.stats['out_of_order_packets'] > 0:
             ooo_percent = (self.stats['out_of_order_packets'] / self.stats['total_packets']) * 100
             score -= min(ooo_percent * 0.5, 10)
             
-        # Бонус за стабильный FPS
+        # Bonus for stable FPS
         if 15 <= self.stats['fps'] <= 30:
             score += 5
         elif self.stats['fps'] > 30:
@@ -220,15 +220,15 @@ class RTPAnalyzer:
         return max(0, min(100, score))
 
 def analyze_multiple_files(filenames):
-    """Анализ нескольких файлов и сравнение"""
-    print("🔍 Анализ нескольких RTP файлов")
+    """Analyze multiple files and compare"""
+    print("🔍 Analyzing multiple RTP files")
     print("=" * 60)
     
     results = []
     
     for filename in filenames:
         if not os.path.exists(filename):
-            print(f"❌ Файл не найден: {filename}")
+            print(f"❌ File not found: {filename}")
             continue
             
         analyzer = RTPAnalyzer(filename)
@@ -239,9 +239,9 @@ def analyze_multiple_files(filenames):
             })
     
     if len(results) > 1:
-        print("\n📊 Сравнительная таблица:")
+        print("\n📊 Comparison table:")
         print("-" * 80)
-        print(f"{'Файл':<20} {'Пакеты':<10} {'Размер(МБ)':<12} {'FPS':<8} {'Потери(%)':<10} {'Оценка':<8}")
+        print(f"{'File':<20} {'Packets':<10} {'Size(MB)':<12} {'FPS':<8} {'Loss(%)':<10} {'Score':<8}")
         print("-" * 80)
         
         for result in results:
@@ -258,31 +258,31 @@ def analyze_multiple_files(filenames):
         
         print("-" * 80)
         
-        # Поиск лучшего результата
+        # Find best result
         best_result = max(results, key=lambda x: RTPAnalyzer(x['filename'])._calculate_quality_score())
-        print(f"\n🏆 Лучший результат: {best_result['filename']}")
+        print(f"\n🏆 Best result: {best_result['filename']}")
 
 def main():
-    parser = argparse.ArgumentParser(description='Анализатор RTP файлов')
-    parser.add_argument('files', nargs='+', help='RTP файлы для анализа')
-    parser.add_argument('--compare', action='store_true', help='Сравнить несколько файлов')
+    parser = argparse.ArgumentParser(description='RTP File Analyzer')
+    parser.add_argument('files', nargs='+', help='RTP files to analyze')
+    parser.add_argument('--compare', action='store_true', help='Compare multiple files')
     
     args = parser.parse_args()
     
     if len(args.files) == 0:
-        print("❌ Укажите хотя бы один RTP файл")
+        print("❌ Specify at least one RTP file")
         sys.exit(1)
     
-    print(f"🎥 RTP Анализатор - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"🎥 RTP Analyzer - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)
     
     if args.compare or len(args.files) > 1:
         analyze_multiple_files(args.files)
     else:
-        # Анализ одного файла
+        # Analyze single file
         filename = args.files[0]
         if not os.path.exists(filename):
-            print(f"❌ Файл не найден: {filename}")
+            print(f"❌ File not found: {filename}")
             sys.exit(1)
             
         analyzer = RTPAnalyzer(filename)

@@ -1,5 +1,5 @@
 # ============================================================
-# Stage 1: builder — компилирует приложение и тесты
+# Stage 1: builder — compiles application and tests
 # ============================================================
 FROM ubuntu:24.04 AS builder
 
@@ -27,8 +27,8 @@ RUN curl -fsSL https://github.com/Kitware/CMake/releases/download/v3.30.5/cmake-
     && bash /tmp/cmake.sh --skip-license --prefix=/usr/local \
     && rm /tmp/cmake.sh
 
-# Полный клон — без --depth=1, иначе vcpkg не может делать
-# git read-tree для версионированных портов (catch2, spdlog)
+# Full clone — without --depth=1, otherwise vcpkg cannot do
+# git read-tree for versioned ports (catch2, spdlog)
 RUN git clone https://github.com/microsoft/vcpkg.git ${VCPKG_ROOT} \
     && ${VCPKG_ROOT}/bootstrap-vcpkg.sh -disableMetrics \
     && mkdir -p ${VCPKG_ROOT}/triplets/community
@@ -42,7 +42,7 @@ set(VCPKG_C_FLAGS "")\n\
 set(VCPKG_LINKER_FLAGS "-stdlib=libc++ -lc++abi")\n' \
     > ${VCPKG_ROOT}/triplets/community/x64-linux-clang.cmake
 
-# vcpkg.json отдельным слоем — кэшируется пока манифест не меняется
+# vcpkg.json as a separate layer — cached until manifest changes
 COPY vcpkg.json /src/vcpkg.json
 RUN ${VCPKG_ROOT}/vcpkg install \
     --triplet=x64-linux-clang \
@@ -50,7 +50,7 @@ RUN ${VCPKG_ROOT}/vcpkg install \
     --x-manifest-root=/src \
     && rm -rf ${VCPKG_ROOT}/buildtrees ${VCPKG_ROOT}/downloads
 
-# Исходники после зависимостей — изменения кода не инвалидируют слой vcpkg
+# Sources after dependencies — code changes do not invalidate vcpkg layer
 COPY . /src
 WORKDIR /src/build
 
@@ -70,7 +70,7 @@ RUN cmake .. \
     && ninja -j$(nproc)
 
 # ============================================================
-# Stage 2: test-runner — запускает тесты и сетевые сценарии
+# Stage 2: test-runner — runs tests and network scenarios
 # ============================================================
 FROM ubuntu:24.04 AS test-runner
 
@@ -102,7 +102,7 @@ WORKDIR /app
 ENTRYPOINT ["/app/tests/scripts/run_all.sh"]
 
 # ============================================================
-# Stage 3: runtime — минимальный образ только с приложением
+# Stage 3: runtime — minimal image with application only
 # ============================================================
 FROM ubuntu:24.04 AS runtime
 

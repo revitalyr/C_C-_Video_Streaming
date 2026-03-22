@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# run_e2e.sh — end-to-end тесты: поднимает RTP поток, применяет netem,
-#              запускает приложение, измеряет latency и PLR.
+# run_e2e.sh — end-to-end tests: starts RTP stream, applies netem,
+#              starts application, measures latency and PLR.
 set -euo pipefail
 
 RESULTS_DIR="/app/results"
@@ -8,15 +8,15 @@ PCAP_DIR="/app/pcap"
 RTP_HOST="${RTP_HOST:-rtp-source}"
 RTP_PORT="${RTP_PORT:-5004}"
 RTCP_PORT="${RTCP_PORT:-5005}"
-DURATION=30          # секунд на каждый сценарий
+DURATION=30          # seconds per scenario
 
 mkdir -p "${RESULTS_DIR}" "${PCAP_DIR}"
 
-# ── Вспомогательные функции ─────────────────────────────────────
+# ── Helper Functions ─────────────────────────────────────
 
 apply_netem() {
     local profile=$1
-    # Сбрасываем предыдущие правила
+    # Reset previous rules
     tc qdisc del dev eth0 root 2>/dev/null || true
 
     case "${profile}" in
@@ -65,7 +65,7 @@ run_scenario() {
 
     apply_netem "${profile}"
 
-    # Захват RTP/RTCP трафика в фоне
+    # Capture RTP/RTCP traffic in background
     tshark -i eth0 \
         -f "udp port ${RTP_PORT} or udp port ${RTCP_PORT}" \
         -w "${pcap_file}" \
@@ -73,24 +73,24 @@ run_scenario() {
         -q &
     TSHARK_PID=$!
 
-    # Запускаем приложение (получатель RTP)
+    # Start application (RTP receiver)
     timeout "${DURATION}" /app/video_streaming_app \
         --rtp-port "${RTP_PORT}" \
         --rtcp-port "${RTCP_PORT}" \
         --metrics-out "${metrics_file}" \
         2>&1 | tee "${RESULTS_DIR}/${profile}_app.log" || true
 
-    # Останавливаем захват
+    # Stop capture
     kill "${TSHARK_PID}" 2>/dev/null || true
     wait "${TSHARK_PID}" 2>/dev/null || true
 
-    # Анализируем pcap
+    # Analyze pcap
     python3 /app/tests/scripts/analyze_pcap.py \
         --pcap "${pcap_file}" \
         --rtp-port "${RTP_PORT}" \
         --out "${RESULTS_DIR}/${profile}_pcap_stats.json" || return 1
 
-    # Проверяем пороговые значения для данного профиля
+    # Check thresholds for current profile
     python3 /app/tests/scripts/check_thresholds.py \
         --profile "${profile}" \
         --metrics "${metrics_file}" \
@@ -99,7 +99,7 @@ run_scenario() {
     echo "[e2e] Scenario ${profile} done"
 }
 
-# ── Основной цикл сценариев ─────────────────────────────────────
+# ── Main Scenario Loop ─────────────────────────────────────
 
 FAILED=0
 
@@ -112,7 +112,7 @@ for profile in clean wifi_indoor wifi_crowded lte_edge worst_case; do
     fi
 done
 
-# Сбрасываем netem после всех тестов
+# Reset netem after all tests
 tc qdisc del dev eth0 root 2>/dev/null || true
 
 exit ${FAILED}

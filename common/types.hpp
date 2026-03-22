@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <string>
-#include <string_view>
 #include <vector>
 #include <chrono>
 #include <memory>
@@ -27,8 +26,7 @@ using Ssrc = u32;
 
 // String type aliases
 using String = std::string;
-using StringView = std::string_view;
-using Bytes = std::vector<u8>;
+using Bytes = std::vector<std::uint8_t>;
 
 // Time-related aliases
 using Milliseconds = std::chrono::milliseconds;
@@ -58,8 +56,8 @@ using Mutex = std::mutex;
 using LockGuard = std::lock_guard<Mutex>;
 
 // Common constants
-constexpr u32 RTP_VERSION = 2;
-constexpr u8 RTP_PAYLOAD_TYPE_H264 = 96;
+constexpr std::uint32_t RTP_VERSION = 2;
+constexpr std::uint8_t RTP_PAYLOAD_TYPE_H264 = 96;
 constexpr size_t DEFAULT_MTU = 1200;
 constexpr size_t RTP_HEADER_SIZE = 12;
 constexpr Port DEFAULT_RTP_PORT = 5004;
@@ -95,7 +93,7 @@ struct Result {
     bool is_error() const noexcept { return m_error_code != ErrorCode::None; }
     
     static Result success() { return Result{ErrorCode::None, ""}; }
-    static Result error(ErrorCode code, StringView message) {
-        return Result{code, String(message)};
+    static Result error(ErrorCode code, const std::string& message) {
+        return Result{code, message};
     }
 };

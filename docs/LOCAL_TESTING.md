@@ -1,27 +1,27 @@
-# 🎥 Локальное тестирование RTSP/RTP стриминга
+# 🎥 Local RTSP/RTP Streaming Testing
 
-Это руководство описывает как настроить локальный RTSP сервер с помощью FFmpeg и протестировать видеостриминг с использованием локального видеофайла.
+This guide describes how to setup a local RTSP server using FFmpeg and test video streaming using a local video file.
 
-## 📋 Обзор
+## 📋 Overview
 
-Локальное тестирование позволяет:
-- **Тестировать без интернет соединения**
-- **Использовать локальные видеофайлы**
-- **Полностью контролировать тестовую среду**
-- **Быстро итерировать и отлаживать**
-- **Избежать проблем с внешними источниками**
+Local testing allows you to:
+- **Test without internet connection**
+- **Use local video files**
+- **Fully control the test environment**
+- **Iterate and debug quickly**
+- **Avoid issues with external sources**
 
-## 🚀 Быстрый старт
+## 🚀 Quick Start
 
-### 1. Подготовка окружения
+### 1. Environment Preparation
 
-#### **Установка FFmpeg**
+#### **Install FFmpeg**
 ```bash
-# Windows (скачать с официального сайта)
+# Windows (download from official site)
 # https://ffmpeg.org/download.html
-# Добавить ffmpeg.exe в PATH
+# Add ffmpeg.exe to PATH
 
-# Проверка установки
+# Check installation
 ffmpeg -version
 ```
 

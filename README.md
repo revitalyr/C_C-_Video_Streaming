@@ -1,49 +1,52 @@
-# Video Streaming System - C++26
+# Video Streaming System - C++
 
-Современная система видеостриминга с использованием C++26 модулей и передовых возможностей языка.
+A high-performance, standards-compliant RTSP/RTP video streaming system. This project implements a full-stack streaming server and client capable of handling real-time H.264 video with adaptive network resilience.
 
-## 🚀 Возможности C++26
+## Technical Specifications
 
-### Модульная система
-- **C++26 Modules**: Полная поддержка `import/export` модулей
-- **Разделение интерфейсов**: Чистое разделение реализации и интерфейса
-- **Быстрая компиляция**: Ускорение сборки за счет модулей
+### Core Protocols
+- **RTSP (RFC 2326)**: Complete server and client implementation supporting OPTIONS, DESCRIBE, SETUP, PLAY, PAUSE, and TEARDOWN methods.
+- **RTP (RFC 3550)**: Efficient packetization and transmission of real-time data.
+- **H.264 (RFC 6184)**: Payload format support, including NAL unit parsing, aggregation (STAP-A), and fragmentation (FU-A).
+- **Transport**: Support for both UDP (unicast/multicast) and TCP Interleaved (RTP over RTSP) for firewall traversal.
 
-### Современные фичи языка
-- **Perfect Forwarding**: Оптимизированная передача аргументов
-- **Structured Bindings**: Деконструкция кортежей и структур
-- **Ranges**: Функциональная работа с последовательностями
-- **Concepts**: Ограничения шаблонов с compile-time проверкой
-- **Constexpr**: Compile-time вычисления и оптимизации
-- **std::expected**: Безопасная обработка ошибок
-- **std::barrier**: Синхронизация потоков нового поколения
+### Implemented Features
+1.  **RTSP/RTP Stack**:
+    -   Custom implementation of RTSP (RFC 2326) server and client state machines.
+    -   Zero-copy RTP packet processing path.
+    -   Session management and keep-alive mechanisms.
+2.  **Media Processing**:
+    -   Synthetic H.264 video generator (I-frame/P-frame) for latency testing without camera hardware.
+    -   Adaptive Jitter Buffer to handle network jitter, packet reordering, and loss.
+3.  **Network Resilience**:
+    -   Packet loss detection and concealment.
+    -   Congestion control hooks.
+4.  **Performance**:
+    -   Asynchronous I/O architecture.
+    -   Lock-free ring buffers for inter-thread frame passing.
+    -   Utilizes C++26 features (Modules, `std::expected`, `std::barrier`) for reliability and speed.
 
-### Управление памятью
-- **Smart Pointers**: RAII и автоматическое управление памятью
-- **Move Semantics**: Эффективное перемещение ресурсов
-- **Thread Safety**: Безопасная работа в многопоточной среде
-
-## 📁 Структура проекта
+## Project Structure
 
 ```
 video-streaming/
-├── common/                 # Общие модули
-│   ├── logger.ixx         # Модуль логирования
-│   ├── logger.cpp         # Реализация логгера
-│   ├── interfaces.ixx     # Модуль типов-алиасов
-│   └── std.ixx            # Модуль стандартных функций
-├── tests/                  # Тесты (Catch2 v3)
-│   ├── test_logger.cpp     # Тесты логгера
-│   ├── test_interfaces.cpp # Тесты интерфейсов
-│   └── test_integration.cpp # Интеграционные тесты
-├── src/                    # Основное приложение
-│   └── main.cpp           # Демонстрация C++26 возможностей
-├── rtp/                    # RTP протокол
-├── media/                  # Медиа обработка
-├── network/                # Сетевой слой
-├── jitter/                 # Jitter buffer
-├── CMakeLists.txt          # C++26 конфигурация
-└── vcpkg.json             # Зависимости
+├── common/                 # Shared modules (Logger, Interfaces, Std wrappers)
+│   ├── logger.ixx         # Logger module interface
+│   ├── logger.cpp         # Logger implementation
+│   └── interfaces.ixx     # Common type definitions
+├── src/                    # Application entry points
+│   ├── simple_rtsp_server.cpp # Reference RTSP Server implementation
+│   └── test_rtsp_client.cpp   # Reference RTSP Client/Recorder
+├── rtp/                    # RTP/RTSP protocol implementation
+│   ├── rtsp_client.cpp
+│   ├── h264_packetizer.cpp
+│   └── rtp_packet.cpp
+├── media/                  # Video frame handling and synthetic encoding
+├── network/                # Socket abstractions (UDP/TCP)
+├── jitter/                 # Jitter buffer implementation
+├── tests/                  # Unit and Integration tests (Catch2 v3)
+├── CMakeLists.txt          # Build configuration
+└── vcpkg.json             # Dependency manifest
 ```
 
 ## 🛠️ Требования

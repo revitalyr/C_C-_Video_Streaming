@@ -10,7 +10,7 @@ import video_streaming.interfaces;
 
 using namespace video_streaming;
 
-// C++26 тесты с использованием модулей и Catch2 v3
+// C++26 tests using modules and Catch2 v3
 TEST_CASE("Logger Construction and Basic Operations", "[logger]") {
     
     SECTION("Basic Construction") {
@@ -35,10 +35,10 @@ TEST_CASE("Logger Construction and Basic Operations", "[logger]") {
         auto& manager1 = LoggerManager::instance();
         auto& manager2 = LoggerManager::instance();
         
-        // C++26: Сравнение ссылок на один и тот же объект
+        // C++26: Reference comparison to the same object
         REQUIRE(&manager1 == &manager2);
         
-        // C++26: Проверка thread-safe доступа
+        // C++26: Thread-safe access check
         std::vector<std::thread> threads;
         constexpr int num_threads = 10;
         
@@ -59,12 +59,12 @@ TEST_CASE("Logger Construction and Basic Operations", "[logger]") {
     SECTION("Log Level Filtering") {
         Logger logger("level_test", LogLevel::WARN);
         
-        // C++26: Используем perfect forwarding
+        // C++26: Use perfect forwarding
         logger.info("This should not appear");
         logger.warn("This should appear");
         logger.error("This should appear");
         
-        // C++26: Изменение уровня во время выполнения
+        // C++26: Change level at runtime
         logger.set_level(LogLevel::ERROR);
         logger.warn("This should not appear anymore");
         logger.error("This should still appear");
@@ -76,7 +76,7 @@ TEST_CASE("Advanced C++26 Features", "[logger][c++26]") {
     SECTION("Perfect Forwarding") {
         Logger logger("forwarding_test", LogLevel::DEBUG);
         
-        // C++26: Perfect forwarding для различных типов
+        // C++26: Perfect forwarding for different types
         const int int_val = 42;
         const double double_val = 3.14159;
         const std::string string_val = "test";
@@ -87,7 +87,7 @@ TEST_CASE("Advanced C++26 Features", "[logger][c++26]") {
     SECTION("Range Logging") {
         Logger logger("range_test", LogLevel::INFO);
         
-        // C++26: Логирование ranges
+        // C++26: Logging ranges
         std::vector<int> numbers = {1, 2, 3, 4, 5};
         logger.info_range("Numbers", numbers);
         
@@ -98,7 +98,7 @@ TEST_CASE("Advanced C++26 Features", "[logger][c++26]") {
     SECTION("Error Handling") {
         LoggerManager& manager = LoggerManager::instance();
         
-        // C++26: Проверка удаления логгера
+        // C++26: Check logger removal
         manager.remove_logger("temporary_logger"); // Ensure clean state
         REQUIRE(manager.remove_logger("temporary_logger") == false);
         
@@ -116,10 +116,10 @@ TEST_CASE("Advanced C++26 Features", "[logger][c++26]") {
     SECTION("UDP Sink Configuration") {
         Logger logger("udp_test", LogLevel::INFO);
         
-        // Проверка API добавления UDP sink (функциональный тест без реальной сети)
+        // Check UDP sink addition API (functional test without real network)
         REQUIRE_NOTHROW(logger.add_udp_sink("127.0.0.1", 9000));
         
-        // Убеждаемся, что логирование в UDP sink не вызывает исключений
+        // Ensure logging to UDP sink does not throw exceptions
         REQUIRE_NOTHROW(logger.info("UDP test message"));
         REQUIRE_NOTHROW(logger.warn("UDP warning message"));
     }
@@ -154,20 +154,20 @@ TEST_CASE("Performance and Thread Safety", "[logger][performance]") {
         auto end_time = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
         
-        // C++26: Используем structured bindings
+        // C++26: Use structured bindings
         const auto [messages, time_us] = std::pair{total_messages.load(), duration.count()};
         
         INFO("Logged " << messages << " messages in " << time_us << " μs");
         INFO("Performance: " << (messages * 1000000.0 / time_us) << " messages/second");
         
-        // C++26: Требование производительности
+        // C++26: Performance requirement
         REQUIRE(time_us < 200000); // Less than 200ms for 8000 messages
     }
     
     SECTION("Logger Manager Stress Test") {
         LoggerManager& manager = LoggerManager::instance();
         
-        // C++26: Создание множества логгеров
+        // C++26: Create multiple loggers
         constexpr int num_loggers = 100;
         
         std::vector<std::string> logger_names;
@@ -177,7 +177,7 @@ TEST_CASE("Performance and Thread Safety", "[logger][performance]") {
         
         auto start_time = std::chrono::high_resolution_clock::now();
         
-        // C++20/26: Используем ranges для итерации
+        // C++20/26: Use ranges for iteration
         for (const auto& name : logger_names) {
             auto* logger = manager.get_logger(name);
             REQUIRE(logger != nullptr);
@@ -190,17 +190,17 @@ TEST_CASE("Performance and Thread Safety", "[logger][performance]") {
         INFO("Created " << num_loggers << " loggers in " << creation_time.count() << " μs");
         REQUIRE(creation_time.count() < 150000); // Less than 150ms for 100 loggers
         
-        // C++26: Проверка всех имен
+        // C++26: Check all names
         auto all_names = manager.get_logger_names();
         
-        // C++20/26: Проверка что все имена присутствуют
+        // C++20/26: Check that all names are present
         for (const auto& name : logger_names) {
             REQUIRE(std::ranges::find(all_names, name) != all_names.end());
         }
     }
 }
 
-// C++26: Тестирование с использованием constexpr и compile-time вычислений
+// C++26: Testing using constexpr and compile-time calculations
 TEST_CASE("Compile-time Features", "[logger][constexpr]") {
     
     SECTION("Consteval LogFormat") {
@@ -209,7 +209,7 @@ TEST_CASE("Compile-time Features", "[logger][constexpr]") {
     }
     
     SECTION("Template Constraints") {
-        // C++26: Проверка концептов во время компиляции
+        // C++26: Check concepts at compile time
         static_assert(Formattable<int>);
         static_assert(Formattable<std::string>);
         static_assert(Formattable<double>);

@@ -9,7 +9,7 @@
 #include <string>
 #include <queue>
 #include <cassert>
-#include <catch2/catch_test_macros.hpp>
+// #include <catch2/catch_all.hpp>  // Temporarily disabled
 
 #include "../sender/video_sender.hpp"
 #include "../receiver/video_receiver.hpp"

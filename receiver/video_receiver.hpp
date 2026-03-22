@@ -9,7 +9,7 @@
 #include <chrono>
 #include <unordered_map>
 
-#include "../common/logger.hpp"
+import video_streaming.logger;
 #include "../media/frame.hpp"
 #include "../network/udp_socket.hpp"
 #include "../rtp/h264_depacketizer.hpp"
@@ -22,7 +22,7 @@ public:
     struct Config {
         uint16_t port = 5000;
         std::string bind_ip = "0.0.0.0";
-        int jitter_buffer_size = 50; // пакетов
+        int jitter_buffer_size = 50; // packets
         int max_frame_size = 1024 * 1024; // 1MB
         bool enable_reordering = true;
     };
@@ -30,15 +30,15 @@ public:
     explicit VideoReceiver(const Config& config);
     ~VideoReceiver();
 
-    // Основные методы управления
+    // Main management methods
     bool start();
     void stop();
     bool is_running() const noexcept { return m_running.load(); }
 
-    // Получение декодированных кадров
+    // Get decoded frames
     std::unique_ptr<VideoFrame> get_frame(int timeout_ms = 100);
     
-    // Статистика
+    // Statistics
     struct Stats {
         uint64_t frames_received = 0;
         uint64_t packets_received = 0;
@@ -52,50 +52,50 @@ public:
     
     Stats get_stats() const;
     
-    // Очистка статистики
+    // Reset statistics
     void reset_stats();
 
 private:
-    // Основной рабочий цикл
+    // Main worker loop
     void receiver_loop();
     
-    // Обработка RTP пакета
+    // Process RTP packet
     void process_rtp_packet(const std::vector<uint8_t>& packet);
     
-    // Сборка кадра из NAL единиц
+    // Assemble frame from NAL units
     std::unique_ptr<VideoFrame> assemble_frame(const std::vector<std::vector<uint8_t>>& nal_units);
     
-    // Обновление статистики
+    // Update statistics
     void update_stats();
 
 private:
     Config m_config;
     std::unique_ptr<Logger> m_logger;
     
-    // Компоненты
+    // Components
     std::unique_ptr<UdpSocket> m_socket;
     std::unique_ptr<H264Depacketizer> m_depacketizer;
     std::unique_ptr<JitterBuffer> m_jitter_buffer;
     
-    // Управление потоками
+    // Thread management
     std::thread m_receiver_thread;
     std::atomic<bool> m_running{false};
     std::atomic<bool> m_stop_requested{false};
     
-    // Очередь кадров для вывода
+    // Frame queue for output
     std::queue<std::unique_ptr<VideoFrame>> m_frame_queue;
     mutable std::mutex m_frame_queue_mutex;
     std::condition_variable m_frame_queue_cv;
     
-    // Статистика
+    // Statistics
     mutable std::mutex m_stats_mutex;
     Stats m_stats;
     
-    // Тайминги
+    // Timings
     std::chrono::steady_clock::time_point m_start_time;
     std::chrono::steady_clock::time_point m_last_stats_update;
     
-    // RTP состояние
+    // RTP state
     std::unordered_map<uint32_t, std::chrono::steady_clock::time_point> m_sequence_timestamps;
     uint32_t m_last_sequence_number = 0;
     uint64_t m_total_packets_expected = 0;

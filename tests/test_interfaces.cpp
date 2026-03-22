@@ -8,7 +8,7 @@ import video_streaming.interfaces;
 
 using namespace video_streaming;
 
-// C++26 тесты для интерфейсного модуля
+// C++26 tests for interface module
 TEST_CASE("Basic Type Aliases", "[interfaces]") {
     
     SECTION("String Type") {
@@ -16,7 +16,7 @@ TEST_CASE("Basic Type Aliases", "[interfaces]") {
         REQUIRE(str == "Hello, C++26!");
         REQUIRE(str.size() == 13);
         
-        // C++26: Perfect forwarding для String
+        // C++26: Perfect forwarding for String
         String moved_str = std::move(str);
         REQUIRE(moved_str == "Hello, C++26!");
         REQUIRE(str.empty()); // str был перемещен
@@ -28,7 +28,7 @@ TEST_CASE("Basic Type Aliases", "[interfaces]") {
         REQUIRE(vec[0] == 1);
         REQUIRE(vec[4] == 5);
         
-        // C++26: Использование ranges с Vector
+        // C++26: Using ranges with Vector
         auto even_numbers = vec | std::views::filter([](int n) { return n % 2 == 0; });
         Vector<int> evens(even_numbers.begin(), even_numbers.end());
         REQUIRE(evens == Vector<int>{2, 4});
@@ -46,7 +46,7 @@ TEST_CASE("Basic Type Aliases", "[interfaces]") {
         REQUIRE(map["two"] == 2);
         REQUIRE(map["three"] == 3);
         
-        // C++26: Итерация по unordered_map с structured bindings
+        // C++26: Iterating over unordered_map with structured bindings
         for (const auto& [key, value] : map) {
             REQUIRE(!key.empty());
             REQUIRE(value > 0);
@@ -57,7 +57,7 @@ TEST_CASE("Basic Type Aliases", "[interfaces]") {
         auto ptr = UniquePtr<int>(new int(42));
         REQUIRE(*ptr == 42);
         
-        // C++26: Perfect forwarding для UniquePtr
+        // C++26: Perfect forwarding for UniquePtr
         auto moved_ptr = std::move(ptr);
         REQUIRE(*moved_ptr == 42);
         REQUIRE(ptr == nullptr);
@@ -72,7 +72,7 @@ TEST_CASE("Basic Type Aliases", "[interfaces]") {
         REQUIRE(*ptr1 == 42);
         REQUIRE(*ptr2 == 42);
         
-        // C++26: Weak pointer для проверки циклических ссылок
+        // C++26: Weak pointer to check cyclic references
         auto weak_ptr = WeakPtr<int>(ptr1);
         REQUIRE(!weak_ptr.expired());
         REQUIRE(weak_ptr.lock() != nullptr);
@@ -82,7 +82,7 @@ TEST_CASE("Basic Type Aliases", "[interfaces]") {
 TEST_CASE("C++26 Advanced Features", "[interfaces][c++26]") {
     
     SECTION("Template Type Deduction") {
-        // C++26: Автоматическое выведение типов для шаблонных алиасов
+        // C++26: Automatic type deduction for template aliases
         Vector numbers = {1, 2, 3, 4, 5};
         static_assert(std::is_same_v<decltype(numbers), Vector<int>>);
         
@@ -93,7 +93,7 @@ TEST_CASE("C++26 Advanced Features", "[interfaces][c++26]") {
     SECTION("Ranges Integration") {
         Vector<int> numbers = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
         
-        // C++26: Композиция ranges с нашими типами
+        // C++26: Composing ranges with our types
         auto result = numbers 
             | std::views::filter([](int n) { return n % 2 == 0; })
             | std::views::transform([](int n) { return n * n; })
@@ -106,7 +106,7 @@ TEST_CASE("C++26 Advanced Features", "[interfaces][c++26]") {
     }
     
     SECTION("Perfect Forwarding") {
-        // C++26: Perfect forwarding для всех типов
+        // C++26: Perfect forwarding for all types
         auto test_forwarding = [](auto&& arg) -> decltype(auto) {
             return std::forward<decltype(arg)>(arg);
         };
@@ -121,12 +121,12 @@ TEST_CASE("C++26 Advanced Features", "[interfaces][c++26]") {
     }
     
     SECTION("Memory Management") {
-        // C++26: Современное управление памятью
+        // C++26: Modern memory management
         {
             auto unique = UniquePtr<Vector<int>>(new Vector<int>{1, 2, 3});
             REQUIRE(unique->size() == 3);
             
-            // C++26: make_unique с perfect forwarding
+            // C++26: make_unique with perfect forwarding
             auto unique2 = UniquePtr<Vector<String>>(new Vector<String>{"a", "b", "c"});
             REQUIRE(unique2->size() == 3);
         }
@@ -135,7 +135,7 @@ TEST_CASE("C++26 Advanced Features", "[interfaces][c++26]") {
             auto shared = SharedPtr<String>(new String("shared"));
             REQUIRE(*shared == "shared");
             
-            // C++26: make_shared с perfect forwarding
+            // C++26: make_shared with perfect forwarding
             auto shared2 = SharedPtr<UnorderedMap<int, String>>(
                 new UnorderedMap<int, String>{{1, "one"}, {2, "two"}}
             );
@@ -147,18 +147,18 @@ TEST_CASE("C++26 Advanced Features", "[interfaces][c++26]") {
 TEST_CASE("Type Safety and Constraints", "[interfaces][safety]") {
     
     SECTION("Type Compatibility") {
-        // C++26: Проверка совместимости типов
+        // C++26: Type compatibility check
         String str = "hello";
         Vector<String> strings = {"a", "b", "c"};
         
-        // Должно компилироваться без проблем
+        // Should compile without issues
         strings.push_back(str);
         REQUIRE(strings.size() == 4);
         REQUIRE(strings.back() == "hello");
     }
     
     SECTION("Move Semantics") {
-        // C++26: Проверка move семантики
+        // C++26: Checking move semantics
         Vector<String> strings;
         strings.reserve(100); // Избегаем реаллокаций
         
@@ -168,14 +168,14 @@ TEST_CASE("Type Safety and Constraints", "[interfaces][safety]") {
         
         REQUIRE(strings.size() == 10);
         
-        // Move операция
+        // Move operation
         Vector<String> moved_strings = std::move(strings);
         REQUIRE(moved_strings.size() == 10);
         REQUIRE(strings.empty()); // strings был перемещен
     }
     
     SECTION("Copy Semantics") {
-        // C++26: Проверка copy семантики для SharedPtr
+        // C++26: Checking copy semantics for SharedPtr
         auto original = SharedPtr<int>(new int(42));
         REQUIRE(original.use_count() == 1);
         
@@ -190,17 +190,17 @@ TEST_CASE("Type Safety and Constraints", "[interfaces][safety]") {
     }
 }
 
-// C++26: Compile-time тесты
+// C++26: Compile-time tests
 TEST_CASE("Compile-time Features", "[interfaces][constexpr]") {
     
     SECTION("Constexpr Operations") {
-        // C++26: constexpr операции с нашими типами (transient allocation check)
+        // C++26: constexpr operations with our types (transient allocation check)
         static_assert( []() consteval {
             Vector<int> v = {1, 2, 3};
             return v.size();
         }() == 3);
         
-        // C++26: constexpr алгоритмы
+        // C++26: constexpr algorithms
         static_assert( []() consteval {
             Vector<int> v = {1, 2, 3};
             int total = 0;
@@ -210,7 +210,7 @@ TEST_CASE("Compile-time Features", "[interfaces][constexpr]") {
     }
     
     SECTION("Template Constraints") {
-        // C++26: Проверка constraint'ов
+        // C++26: Checking constraints
         static_assert(std::is_same_v<String, std::string>);
         static_assert(std::is_same_v<Vector<int>, std::vector<int>>);
         static_assert(std::is_same_v<UnorderedMap<String, int>, std::unordered_map<std::string, int>>);

@@ -2,7 +2,7 @@
 #include <catch2/catch_all.hpp>
 #include <chrono>
 #include <thread>
-#include "logger/logger.hpp"
+import video_streaming.logger;
 #include <random>
 #include <algorithm>
 #include <barrier>
@@ -15,13 +15,13 @@ import video_streaming.interfaces;
 
 using namespace video_streaming;
 
-// C++26 интеграционные тесты
+// C++26 integration tests
 TEST_CASE("Logger Integration with Real-world Scenarios", "[integration]") {
     
     SECTION("Multi-threaded Application Simulation") {
         LoggerManager& manager = LoggerManager::instance();
         
-        // C++26: Использование std::barrier для синхронизации потоков
+        // C++26: Use std::barrier for thread synchronization
         constexpr int num_threads = 8;
         constexpr int messages_per_thread = 100;
         std::barrier sync_point(num_threads);
@@ -36,10 +36,10 @@ TEST_CASE("Logger Integration with Real-world Scenarios", "[integration]") {
                 auto* logger = manager.get_logger(std::format("worker_{}", i));
                 logger->info("Thread {} started", i);
                 
-                // Синхронизация всех потоков
+                // Synchronize all threads
                 sync_point.arrive_and_wait();
                 
-                // C++26: Ranges и structured bindings
+                // C++26: Ranges and structured bindings
                 Vector<std::pair<int, String>> tasks;
                 for (int j = 0; j < messages_per_thread; ++j) {
                     tasks.emplace_back(j, std::format("task_{}_{}", i, j));
@@ -49,7 +49,7 @@ TEST_CASE("Logger Integration with Real-world Scenarios", "[integration]") {
                     logger->info("Processing {}: {}", task_name, task_id);
                     ++total_logged;
                     
-                    // Реальная обработка задачи
+                    // Real task processing
                     process_task(task_id, task_name);
                 }
                 
@@ -67,7 +67,7 @@ TEST_CASE("Logger Integration with Real-world Scenarios", "[integration]") {
         INFO("Logged " << total_logged.load() << " messages in " << duration.count() << " ms");
         REQUIRE(total_logged.load() == num_threads * messages_per_thread);
         
-        // C++26: Проверка всех созданных логгеров
+        // C++26: Verify all created loggers
         auto logger_names = manager.get_logger_names();
         REQUIRE(logger_names.size() >= num_threads);
     }
@@ -75,11 +75,11 @@ TEST_CASE("Logger Integration with Real-world Scenarios", "[integration]") {
     SECTION("Logger Lifecycle Management") {
         LoggerManager& manager = LoggerManager::instance();
         
-        // C++26: Динамическое создание и удаление логгеров
+        // C++26: Dynamic creation and removal of loggers
         Vector<String> temp_loggers;
         constexpr int num_temp_loggers = 50;
         
-        // Создание логгеров
+        // Create loggers
         for (int i = 0; i < num_temp_loggers; ++i) {
             String name = std::format("temp_{}", i);
             temp_loggers.push_back(name);
@@ -90,13 +90,13 @@ TEST_CASE("Logger Integration with Real-world Scenarios", "[integration]") {
             logger->info("Created temporary logger {}", name);
         }
         
-        // Проверка что все логгеры созданы
+        // Check that all loggers are created
         auto all_names = manager.get_logger_names();
         for (const auto& name : temp_loggers) {
             REQUIRE(std::ranges::find(all_names, name) != all_names.end());
         }
         
-        // Удаление половины логгеров
+        // Remove half of the loggers
         for (int i = 0; i < num_temp_loggers / 2; ++i) {
             String name = std::format("temp_{}", i);
             REQUIRE(manager.remove_logger(name) == true);
@@ -105,7 +105,7 @@ TEST_CASE("Logger Integration with Real-world Scenarios", "[integration]") {
             REQUIRE(std::ranges::find(current_names, name) == current_names.end());
         }
         
-        // Проверка что оставшиеся логгеры все еще существуют
+        // Check that remaining loggers still exist
         for (int i = num_temp_loggers / 2; i < num_temp_loggers; ++i) {
             String name = std::format("temp_{}", i);
             auto* logger = manager.get_logger(name);
@@ -124,7 +124,7 @@ TEST_CASE("Performance Benchmarks", "[integration][performance]") {
         
         auto start_time = std::chrono::high_resolution_clock::now();
         
-        // C++26: Batch logging для оптимизации
+        // C++26: Batch logging for optimization
         for (int batch = 0; batch < num_messages / batch_size; ++batch) {
             for (int i = 0; i < batch_size; ++i) {
                 logger.info("Message {}: {}", batch * batch_size + i, "benchmark");
@@ -139,14 +139,14 @@ TEST_CASE("Performance Benchmarks", "[integration][performance]") {
         INFO("Logged " << num_messages << " messages in " << duration.count() << " μs");
         INFO("Performance: " << messages_per_second << " messages/second");
         
-        // C++26: Требование производительности
+        // C++26: Performance requirement
         REQUIRE(messages_per_second > 10000); // Минимум 10K сообщений в секунду
     }
     
     SECTION("Memory Usage Analysis") {
         LoggerManager& manager = LoggerManager::instance();
         
-        // C++26: Создание множества логгеров для анализа памяти
+        // C++26: Create multiple loggers for memory analysis
         constexpr int num_loggers = 1000;
         Vector<String> logger_names;
         
@@ -157,20 +157,20 @@ TEST_CASE("Performance Benchmarks", "[integration][performance]") {
             auto* logger = manager.get_logger(name);
             REQUIRE(logger != nullptr);
             
-            // Логирование для проверки выделения памяти
+            // Logging to check memory allocation
             logger->info("Memory test logger {} created", i);
         }
         
-        // Проверка что все логгеры существуют
+        // Check that all loggers exist
         auto all_names = manager.get_logger_names();
         REQUIRE(all_names.size() >= num_loggers);
         
-        // C++26: Очистка и проверка освобождения памяти
+        // C++26: Cleanup and verify memory release
         for (const auto& name : logger_names) {
             manager.remove_logger(name);
         }
         
-        // Проверка что память освобождена
+        // Check that memory is released
         auto final_names = manager.get_logger_names();
         for (const auto& name : logger_names) {
             REQUIRE(std::ranges::find(final_names, name) == final_names.end());
@@ -183,28 +183,28 @@ TEST_CASE("Error Handling and Recovery", "[integration][error]") {
     SECTION("Graceful Error Handling") {
         LoggerManager& manager = LoggerManager::instance();
         
-        // C++26: Тестирование обработки ошибок
+        // C++26: Error handling testing
         auto* logger = manager.get_logger("error_test");
         REQUIRE(logger != nullptr);
         
-        // Тестирование различных уровней логирования
+        // Testing different logging levels
         logger->debug("Debug message");
         logger->info("Info message");
         logger->warn("Warning message");
         logger->error("Error message");
         
-        // Изменение уровня для фильтрации
+        // Change level for filtering
         logger->set_level(LogLevel::ERROR);
         
-        // Эти сообщения не должны появиться в логе
+        // These messages should not appear in the log
         logger->debug("This should not appear");
         logger->info("This should not appear");
         logger->warn("This should not appear");
         
-        // Это сообщение должно появиться
+        // This message should appear
         logger->error("This should appear");
         
-        // Восстановление уровня
+        // Restore level
         logger->set_level(LogLevel::INFO);
         logger->info("Recovered logging level");
     }
@@ -212,7 +212,7 @@ TEST_CASE("Error Handling and Recovery", "[integration][error]") {
     SECTION("Concurrent Error Recovery") {
         LoggerManager& manager = LoggerManager::instance();
         
-        // C++26: Использование std::latch для синхронизации
+        // C++26: Use std::latch for synchronization
         constexpr int num_threads = 10;
         std::latch start_latch(num_threads);
         
@@ -224,15 +224,15 @@ TEST_CASE("Error Handling and Recovery", "[integration][error]") {
                 try {
                     auto* logger = manager.get_logger(std::format("error_thread_{}", i));
                     
-                    // Ожидание всех потоков
+                    // Wait for all threads
                     start_latch.arrive_and_wait();
                     
-                    // Реальные операции вместо симуляции
+                    // Real operations instead of simulation
                     for (int j = 0; j < 100; ++j) {
                         try {
                             logger->info("Thread {} operation {}", i, j);
                             
-                            // Реальная операция с возможной ошибкой
+                            // Real operation with possible error
                             perform_real_operation(i, j);
                         } catch (const std::exception& e) {
                             ++error_count;
@@ -250,18 +250,18 @@ TEST_CASE("Error Handling and Recovery", "[integration][error]") {
         }
         
         INFO("Total errors handled: " << error_count.load());
-        REQUIRE(error_count.load() > 0); // Должны быть ошибки
-        REQUIRE(error_count.load() <= num_threads * 4); // Но не слишком много
+        REQUIRE(error_count.load() > 0); // Should have errors
+        REQUIRE(error_count.load() <= num_threads * 4); // But not too many
     }
 }
 
-// C++26: Тестирование с использованием новых возможностей
+// C++26: Testing using new features
 TEST_CASE("C++26 Specific Features", "[integration][c++26]") {
     
     SECTION("Structured Bindings with Logger") {
         LoggerManager& manager = LoggerManager::instance();
         
-        // C++26: Structured bindings для работы с логгерами
+        // C++26: Structured bindings for working with loggers
         auto [logger1, logger2, logger3] = std::tuple{
             manager.get_logger("struct_1"),
             manager.get_logger("struct_2"),
@@ -280,13 +280,13 @@ TEST_CASE("C++26 Specific Features", "[integration][c++26]") {
     SECTION("Ranges with Logger Names") {
         LoggerManager& manager = LoggerManager::instance();
         
-        // Создание логгеров
+        // Create loggers
         Vector<String> names = {"range_1", "range_2", "range_3", "range_4", "range_5"};
         for (const auto& name : names) {
             manager.get_logger(name);
         }
         
-        // C++26: Использование ranges для фильтрации имен
+        // C++26: Use ranges to filter names
         auto all_names = manager.get_logger_names();
         auto filtered_names = all_names 
             | std::views::filter([](const String& name) { 
@@ -296,7 +296,7 @@ TEST_CASE("C++26 Specific Features", "[integration][c++26]") {
         Vector<String> range_names(filtered_names.begin(), filtered_names.end());
         REQUIRE(range_names.size() == names.size());
         
-        // C++26: Логирование отфильтрованных имен
+        // C++26: Logging filtered names
         for (const auto& name : range_names) {
             auto* logger = manager.get_logger(name);
             logger->info("Range logger: {}", name);

@@ -121,11 +121,13 @@ public:
        log_impl(LogLevel::CRITICAL, std::source_location::current(), fmt, std::forward<Args>(args)...);
     }
 
-    // Range logging
+    // Range logging - temporarily disabled due to StringView issues
+    /*
     template<std::ranges::range R>
     void info_range(StringView title, R&& range) {
         info("{}: {}", title, range);
     }
+    */
     
     // Additional logging methods used in implementation
     void log_with_fields(LogLevel level, const String& component, const String& message, const std::vector<std::pair<String, String>>& fields);

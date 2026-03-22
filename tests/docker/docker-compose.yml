@@ -1,34 +1,34 @@
 # ---------------------------------------------------------------
-# Сети
+# Networks
 # ---------------------------------------------------------------
 networks:
-  # «хорошая» сеть — unit-тесты и базовый smoke
+  # "clean" network — unit tests and basic smoke
   clean_net:
     driver: bridge
 
-  # «плохая» сеть — jitter/loss эмулируется через tc netem
-  # Параметры применяются скриптом init-netem.sh на хосте
+  # "lossy" network — jitter/loss emulation via tc netem
+  # Parameters applied by init-netem.sh script on host
   lossy_net:
     driver: bridge
     driver_opts:
       com.docker.network.bridge.name: lossy0
 
 # ---------------------------------------------------------------
-# Сервисы
+# Services
 # ---------------------------------------------------------------
 services:
 
-  # --- 1. Сборка (запускается один раз, потом кэш) --------------
+  # --- 1. Build (runs once, then cache) --------------
   builder:
     build:
       context: ../..
       dockerfile: tests/docker/Dockerfile
       target: builder
     image: videostreaming-builder:latest
-    # только собираем, не запускаем
+    # build only, do not run
     command: echo "Build complete"
 
-  # --- 2. Unit-тесты (Catch2) ------------------------------------
+  # --- 2. Unit tests (Catch2) ------------------------------------
   unit-tests:
     build:
       context: ../..
@@ -43,7 +43,7 @@ services:
       - clean_net
       - lossy_net
     cap_add:
-      - NET_ADMIN          # нужен для tc netem внутри контейнера
+      - NET_ADMIN          # needed for tc netem inside container
     environment:
       - TEST_MODE=unit
       - RTP_HOST=rtp-source
@@ -53,13 +53,13 @@ services:
       - test-results:/app/results
     command: ["/app/tests/scripts/run_unit.sh"]
 
-  # --- 3. RTP-источник (ffmpeg) ----------------------------------
+  # --- 3. RTP source (ffmpeg) ----------------------------------
   rtp-source:
     image: jrottenberg/ffmpeg:6.1-ubuntu
     networks:
       lossy_net:
         aliases: [rtp-source]
-    # тестовый видеосигнал 640x480 30fps, low-latency H.264
+    # test video signal 640x480 30fps, low-latency H.264
     command: >
       -re
       -f lavfi -i testsrc=size=640x480:rate=30
@@ -74,7 +74,7 @@ services:
       rtp://receiver:5004
     restart: on-failure
 
-  # --- 4. Приёмник (тестируемое приложение) ----------------------
+  # --- 4. Receiver (application under test) ----------------------
   receiver:
     build:
       context: ../..
@@ -101,7 +101,7 @@ services:
       - pcap-dumps:/app/pcap
     command: ["/app/tests/scripts/run_e2e.sh"]
 
-  # --- 5. Анализатор RTCP (tshark + Python) ----------------------
+  # --- 5. RTCP Analyzer (tshark + Python) ----------------------
   analyzer:
     build:
       context: ../..
@@ -118,7 +118,7 @@ services:
       - test-results:/app/results
     command: ["/app/tests/scripts/analyze_rtcp.sh"]
 
-  # --- 6. Stress-тест: IoT сценарии (слабый CPU, мало памяти) ----
+  # --- 6. Stress test: IoT scenarios (weak CPU, low memory) ----
   stress-iot:
     build:
       context: ../..
@@ -135,7 +135,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.25"       # 25% одного ядра — типичный IoT SoC
+          cpus: "0.25"       # 25% of one core — typical IoT SoC
           memory: 128M       # 128 MB RAM
     environment:
       - TEST_MODE=stress
@@ -144,11 +144,11 @@ services:
       - test-results:/app/results
     command: ["/app/tests/scripts/run_stress.sh"]
     profiles:
-      - stress              # запускается только с --profile stress
+      - stress              # runs only with --profile stress
 
 # ---------------------------------------------------------------
-# Тома
+# Volumes
 # ---------------------------------------------------------------
 volumes:
-  test-results:            # JUnit XML + CSV метрики
-  pcap-dumps:              # .pcapng для post-mortem анализа
+  test-results:            # JUnit XML + CSV metrics
+  pcap-dumps:              # .pcapng for post-mortem analysis
