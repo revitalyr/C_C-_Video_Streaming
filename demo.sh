@@ -96,8 +96,19 @@ echo ""
 cleanup() {
     echo ""
     echo "🛑 Stopping demo..."
-    jobs -p | xargs -r kill
-    wait
+    
+    # Kill all child processes
+    pkill -P $$ 2>/dev/null || true
+    
+    # Kill specific demo processes
+    pkill -f "network_sender" 2>/dev/null || true
+    pkill -f "viewer" 2>/dev/null || true
+    pkill -f "ffplay" 2>/dev/null || true
+    pkill -f "visual_demo" 2>/dev/null || true
+    
+    # Wait a moment for processes to die
+    sleep 1
+    
     echo "✅ Demo stopped."
     exit 0
 }
