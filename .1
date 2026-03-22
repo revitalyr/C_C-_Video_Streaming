@@ -1,0 +1,295 @@
+﻿
+# 🔴 Главные проблемы (в порядке важности)
+
+---
+
+# ❌ 1. НЕТ “killer demo” (самая большая проблема)
+
+Сейчас:
+
+* есть куча компонентов
+* есть тесты
+* есть RTSP клиент
+
+НО нет:
+
+👉 **простого сценария: “запусти и увидишь стрим”**
+
+---
+
+## 💥 Что нужно добавить
+
+Сделай:
+
+```bash
+./sender
+./viewer
+```
+
+И:
+
+* реально идет видео (SDL / ffplay pipe)
+* показывается latency / loss
+
+---
+
+👉 Сейчас у тебя:
+
+> “сохраняем RTP в файл и анализируем”
+
+Это:
+
+* инженерно круто
+* но визуально слабое
+
+---
+
+# ❌ 2. Нет “end-to-end pipeline” в README
+
+Сейчас README говорит:
+
+> много всего
+
+Но не показывает:
+
+```text
+Camera → Encoder → RTP → Network → Jitter → Decoder → Render
+```
+
+---
+
+## 💥 Добавь diagram (обязательно)
+
+```text
+[FFmpeg Encoder]
+        ↓
+   [RTP Packetizer]
+        ↓
+      UDP
+        ↓
+   [Jitter Buffer]
+        ↓
+[H264 Depacketizer]
+        ↓
+     Decoder
+        ↓
+     Renderer
+```
+
+
+# ❌ 3. RTP/RTCP не “подсвечен”
+
+Ты сделал много, но это спрятано.
+
+В README нет акцента:
+
+* FU-A fragmentation
+* depacketizer
+* NACK / retransmission (если есть)
+
+---
+
+## 💥 Нужно явно написать:
+
+```md
+### RTP/H264
+- FU-A fragmentation (RFC 6184)
+- NAL unit reconstruction
+- Sequence validation
+- Marker-bit frame boundaries
+
+### RTCP
+- NACK (RFC 4585)
+- Packet loss recovery
+```
+
+---
+
+# ❌ 4. Нет latency метрики (это очень важно)
+
+Ты пишешь про performance, но нет:
+
+👉 **glass-to-glass latency**
+
+---
+
+## 💥 Добавь:
+
+
+👉 overlay / console output
+
+---
+
+# ❌ 5. Overengineering (чуть-чуть есть)
+
+Ты пишешь:
+
+> C++26, modules, std::barrier
+
+В README:
+
+Смести акцент:
+
+❌ было:
+
+> C++26 features
+
+✅ нужно:
+
+> low-latency streaming system
+
+---
+
+# ❌ 6. Нет “network adversity demo”
+
+У тебя есть jitter buffer, но:
+
+👉 не видно, что он реально нужен
+
+---
+
+## 💥 Добавь CLI:
+
+```bash
+--loss 5
+--delay 50
+--jitter 20
+```
+
+И лог:
+
+```text
+[NETWORK] loss=5%, jitter=30ms
+[JITTER BUFFER] reordering packets
+```
+
+---
+
+# ❌ 7. Нет decoding / playback (важно)
+
+Сейчас:
+
+* ты сохраняешь RTP
+* анализируешь
+
+👉 но не показываешь видео
+
+---
+
+## 💥 Минимум:
+
+```bash
+ffplay output.rtp
+```
+
+Лучше:
+
+* встроенный viewer (SDL)
+
+---
+
+# 🟡 Средние улучшения
+
+---
+
+## 🟡 1. SPS/PPS handling
+
+Добавь в README:
+
+```text
+NAL types:
+- SPS (7)
+- PPS (8)
+- IDR (5)
+```
+
+---
+
+## 🟡 2. Packet pacing
+
+Сейчас не видно:
+
+👉 добавь:
+
+```text
+RTP pacing to avoid burst transmission
+```
+
+---
+
+## 🟡 3. Thread model
+
+Добавь:
+
+```text
+Threads:
+- capture thread
+- encode thread
+- network thread
+```
+
+---
+
+# 🔥 Что сделает проект ТОПОВЫМ
+
+---
+
+## 🔥 1. “Demo GIF”
+
+Покажи:
+
+* видео идет
+* лог справа
+* loss меняется
+
+---
+
+## 🔥 2. One-command demo
+
+```bash
+./demo.sh
+```
+
+---
+
+## 🔥 3. Metrics output
+
+---
+
+## 🔥 4. Section “Engineering Challenges”
+
+Добавь:
+
+```md
+## Challenges
+
+- Handling packet loss in FU-A streams
+- Designing jitter buffer for reordering
+- RTP timing vs real-time playback
+- Tradeoffs between latency and reliability
+```
+
+---
+
+Добавь:
+
+1. ✅ визуальный playback
+2. ✅ latency + metrics
+3. ✅ network simulation
+4. ✅ diagram
+5. ✅ упростить storytelling
+
+---
+
+# 💬 Самое важное
+
+У тебя уже есть:
+
+> инженерная глубина ✔
+> реальные протоколы ✔
+> RTSP + RTP ✔
+
+Тебе не хватает только:
+
+> **“сделать это понятным и демонстрируемым”**
+

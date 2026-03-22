@@ -1,0 +1,1958 @@
+﻿
+C/C++ Video Streaming Engineer
+
+At SQUAD, our Video Streaming team delivers exceptional video quality experiences across diverse platforms. We specialize in cloud media streaming, codec configuration, and video streaming optimization for smart home security and IoT devices.
+
+Our solutions primarily operate on embedded systems, allowing us to collaborate closely with hardware vendors to maximize performance and introduce cutting-edge features. With a strong focus on innovation, the Video Streaming team develops efficient, low-latency, high-quality solutions tailored to support various platforms and operating systems, including Linux and RTOS.
+
+We are seeking a skilled C++ Video Streaming Engineer to join our team and contribute to projects in the smart home security and IoT domains. You will be responsible for developing a low-latency video streaming solution that enables reliable bidirectional communication and conferencing across various network conditions.
+
+Expanding our Video Streaming team, we are looking for a professional with strong development skills who is passionate about video streaming technologies and adept at tackling technical challenges.
+ 
+
+ 
+
+Responsibilities and Duties
+
+    Develop code in C/C++ for embedded Linux/RTOS applications, services, and drivers related to video streaming
+    Design and implement complex streaming solutions for smart home security and IoT devices
+    Follow Agile processes, including new feature development, product support, implementation of tests, writing technical documentation, and performing code and architecture reviews.
+
+ 
+
+Qualifications and Skills
+
+    Proficiency in programming languages C and C++ (11)
+    Extensive practical knowledge of one or more of the common streaming/control protocols — RTP/RTCP, RTSP, SDP, WebRTC
+    Basic understanding of video and audio encoding technologies
+    Deep understanding of network programming, VoIP and Video over IP
+    Practical experience with media frameworks such as GStreamer, FFMpeg, WebRTC, LibAV, or any other
+    Experience in developing scalable distributed systems
+    Experience in network troubleshooting
+    Experience in UNIX-like OS environment
+    Understanding of Software Development Process. Including the Software Design process
+    Strong problem-solving skills, with the ability to analyze issues and identify root causes
+    At least Intermediate level in both written and spoken English.
+
+ 
+
+Nice to have
+
+    Familiarity with multiple media codecs, including H.264 and H.265
+    Experience with programming languages such as Golang and Python.
+
+## **Low-Latency IoT Video Streaming Stack (C++)**
+
+👉 Мини-версия системы видеонаблюдения (как у smart camera)
+
+**Состав:**
+
+* 📷 Embedded camera simulator (sender)
+* 🌐 Streaming server (optional relay / NAT traversal)
+* 🖥 Viewer client (receiver)
+* 📊 Metrics + adaptive streaming
+
+---
+
+Ты закрываешь почти все требования:
+
+* RTP/RTCP ✅
+* RTSP или WebRTC ✅
+* low latency ✅
+* codecs (H264/H265) ✅
+* GStreamer / FFmpeg ✅
+* network troubleshooting ✅
+* embedded mindset ✅
+
+---
+
+# 🧱 Архитектура (production-style)
+
+## 1. Sender (Camera)
+
+```
+camera/
+ ├── capture/
+ │    ├── v4l2_capture.cpp        // или synthetic generator
+ │
+ ├── encoder/
+ │    ├── h264_encoder.cpp       // FFmpeg / x264
+ │
+ ├── rtp/
+ │    ├── rtp_packetizer.cpp
+ │    ├── rtp_session.cpp
+ │
+ ├── transport/
+ │    ├── udp_socket.cpp
+ │
+ └── main.cpp
+```
+
+👉 Делает:
+
+* генерирует видео (или берет из файла)
+* кодирует в H264
+* пакует в RTP
+* шлет по UDP
+
+---
+
+## 2. Receiver (Viewer)
+
+```
+viewer/
+ ├── rtp/
+ │    ├── rtp_depacketizer.cpp
+ │
+ ├── jitter_buffer/
+ │    ├── jitter_buffer.cpp
+ │
+ ├── decoder/
+ │    ├── h264_decoder.cpp
+ │
+ ├── render/
+ │    ├── sdl_renderer.cpp
+ │
+ └── main.cpp
+```
+
+👉 Делает:
+
+* принимает RTP
+* reorder + jitter buffer
+* декодирует
+* показывает видео
+
+---
+
+## 3. Control Plane (очень важно)
+
+Добавь:
+
+* RTCP stats (packet loss, RTT)
+* bitrate adaptation (очень круто)
+
+---
+
+
+## 1. Jitter Buffer (обязательно)
+
+Реализация:
+
+* reorder packets по sequence number
+* adaptive delay
+
+👉 Это прям “реальный VoIP/video experience”
+
+---
+
+## 2. Packet Loss Simulation
+
+Сделай network layer:
+
+```
+network_sim/
+ ├── loss_simulator.cpp
+ ├── delay_simulator.cpp
+ ├── bandwidth_limiter.cpp
+```
+
+👉 Можно через:
+
+* drop packets %
+* random delay
+
+---
+
+## 3. Adaptive Bitrate (🔥🔥🔥)
+
+Простейший вариант:
+
+* RTCP reports
+* если loss > X → снижаешь bitrate
+
+---
+
+## 4. RTP + RTCP (обязательно)
+
+Минимум:
+
+* RTP header
+* sequence
+* timestamp
+* SSRC
+
+RTCP:
+
+* Receiver Report
+* packet loss
+* jitter
+
+---
+
+## 5. GStreamer или FFmpeg интеграция
+
+👉 Например:
+
+* encode через FFmpeg API
+* или pipeline через GStreamer
+
+---
+
+## 6. WebRTC-lite (если хочешь “overkill”)
+
+Минимум:
+
+* ICE-lite (optional)
+* SRTP (можно пропустить)
+
+---
+
+### 🧠 1. Zero-copy pipeline
+
+* ring buffers
+* lock-free queue
+
+### 🧵 2. Threading model
+
+```
+capture → encode → packetize → send
+```
+
+каждый stage в своем потоке
+
+---
+
+### 📉 3. Latency measurement
+
+---
+
+### 📡 4. NAT traversal (STUN-lite)
+
+Даже fake-реализация = huge плюс
+
+---
+
+# 📊 README (очень важно)
+
+Сделай красиво:
+
+## Diagram
+
+```
+Camera → RTP → Network → Viewer
+           ↑
+         RTCP
+```
+
+## Features
+
+* Low latency streaming (<150ms)
+* RTP/RTCP implementation
+* Jitter buffer
+* Packet loss recovery (basic)
+* Adaptive bitrate
+
+---
+
+> реализовал end-to-end video streaming pipeline с RTP/RTCP, jitter buffer и adaptive bitrate, ориентированный на low-latency IoT сценарии.
+
+
+👉 Делай **RTP pipeline + jitter buffer + network simulation**
+
+
+Окей — сделаю тебе **реальный production-style skeleton**, не “учебный пример”, а то, что выглядит как основа настоящего стримингового движка.
+
+Я дам:
+
+* 📦 структуру проекта
+* 🧱 ключевые интерфейсы
+* ⚙️ threading + pipeline
+* 📡 RTP/RTCP заготовки
+* 🧠 jitter buffer
+* 🚀 готовую точку расширения под FFmpeg/GStreamer
+
+---
+
+# 📦 Project Structure
+
+```bash
+video-streaming/
+├── CMakeLists.txt
+├── cmake/
+│   └── compiler_flags.cmake
+│
+├── common/
+│   ├── types.hpp
+│   ├── logging.hpp
+│   ├── time.hpp
+│   └── ring_buffer.hpp
+│
+├── network/
+│   ├── udp_socket.hpp
+│   ├── udp_socket.cpp
+│   ├── endpoint.hpp
+│
+├── rtp/
+│   ├── rtp_packet.hpp
+│   ├── rtp_packetizer.hpp
+│   ├── rtp_packetizer.cpp
+│   ├── rtp_depacketizer.hpp
+│   ├── rtp_depacketizer.cpp
+│   ├── rtcp.hpp
+│
+├── jitter/
+│   ├── jitter_buffer.hpp
+│   ├── jitter_buffer.cpp
+│
+├── media/
+│   ├── frame.hpp
+│   ├── encoder.hpp
+│   ├── decoder.hpp
+│
+├── pipeline/
+│   ├── stage.hpp
+│   ├── pipeline.hpp
+│
+├── sender/
+│   ├── camera_source.hpp
+│   ├── sender_pipeline.cpp
+│   └── main.cpp
+│
+├── receiver/
+│   ├── receiver_pipeline.cpp
+│   └── main.cpp
+│
+└── tests/
+```
+
+---
+
+# 🧱 Core Types
+
+## `common/types.hpp`
+
+```cpp
+#pragma once
+#include <cstdint>
+
+using u8  = uint8_t;
+using u16 = uint16_t;
+using u32 = uint32_t;
+using u64 = uint64_t;
+
+using Timestamp = u64;
+```
+
+---
+
+# ⚙️ Lock-Free Ring Buffer (важно для latency)
+
+## `common/ring_buffer.hpp`
+
+```cpp
+#pragma once
+#include <atomic>
+#include <vector>
+
+template<typename T, size_t Size>
+class RingBuffer {
+public:
+    bool push(const T& item) {
+        auto head = head_.load(std::memory_order_relaxed);
+        auto next = (head + 1) % Size;
+
+        if (next == tail_.load(std::memory_order_acquire))
+            return false;
+
+        buffer_[head] = item;
+        head_.store(next, std::memory_order_release);
+        return true;
+    }
+
+    bool pop(T& item) {
+        auto tail = tail_.load(std::memory_order_relaxed);
+
+        if (tail == head_.load(std::memory_order_acquire))
+            return false;
+
+        item = buffer_[tail];
+        tail_.store((tail + 1) % Size, std::memory_order_release);
+        return true;
+    }
+
+private:
+    std::vector<T> buffer_{Size};
+    std::atomic<size_t> head_{0};
+    std::atomic<size_t> tail_{0};
+};
+```
+
+---
+
+# 📡 RTP Layer
+
+## `rtp/rtp_packet.hpp`
+
+```cpp
+#pragma once
+#include "common/types.hpp"
+#include <vector>
+
+struct RtpHeader {
+    u8  version:2{2};
+    u8  padding:1{0};
+    u8  extension:1{0};
+    u8  csrc_count:4{0};
+    u8  marker:1{0};
+    u8  payload_type:7{96};
+
+    u16 sequence_number{0};
+    u32 timestamp{0};
+    u32 ssrc{0};
+};
+
+struct RtpPacket {
+    RtpHeader header;
+    std::vector<u8> payload;
+};
+```
+
+---
+
+## `rtp/rtp_packetizer.hpp`
+
+```cpp
+#pragma once
+#include "rtp_packet.hpp"
+
+class RtpPacketizer {
+public:
+    explicit RtpPacketizer(u32 ssrc)
+        : ssrc_(ssrc) {}
+
+    RtpPacket packetize(const std::vector<u8>& frame, u32 timestamp);
+
+private:
+    u16 sequence_{0};
+    u32 ssrc_;
+};
+```
+
+---
+
+## `rtp/rtp_packetizer.cpp`
+
+```cpp
+#include "rtp_packetizer.hpp"
+
+RtpPacket RtpPacketizer::packetize(const std::vector<u8>& frame, u32 ts) {
+    RtpPacket pkt;
+    pkt.header.sequence_number = sequence_++;
+    pkt.header.timestamp = ts;
+    pkt.header.ssrc = ssrc_;
+    pkt.payload = frame; // TODO: fragmentation for MTU
+
+    return pkt;
+}
+```
+
+---
+
+# 🧠 Jitter Buffer
+
+## `jitter/jitter_buffer.hpp`
+
+```cpp
+#pragma once
+#include "rtp/rtp_packet.hpp"
+#include <map>
+
+class JitterBuffer {
+public:
+    void push(const RtpPacket& pkt);
+
+    bool pop(RtpPacket& out);
+
+private:
+    std::map<u16, RtpPacket> buffer_;
+    u16 expected_seq_{0};
+};
+```
+
+---
+
+## `jitter/jitter_buffer.cpp`
+
+```cpp
+#include "jitter_buffer.hpp"
+
+void JitterBuffer::push(const RtpPacket& pkt) {
+    buffer_[pkt.header.sequence_number] = pkt;
+}
+
+bool JitterBuffer::pop(RtpPacket& out) {
+    auto it = buffer_.find(expected_seq_);
+    if (it == buffer_.end())
+        return false;
+
+    out = it->second;
+    buffer_.erase(it);
+    ++expected_seq_;
+    return true;
+}
+```
+
+---
+
+# 🌐 UDP Transport
+
+## `network/udp_socket.hpp`
+
+```cpp
+#pragma once
+#include "endpoint.hpp"
+#include <vector>
+
+class UdpSocket {
+public:
+    UdpSocket();
+    ~UdpSocket();
+
+    bool bind(u16 port);
+    bool send(const std::vector<u8>& data, const Endpoint& ep);
+    int recv(std::vector<u8>& buffer, Endpoint& sender);
+
+private:
+    int fd_;
+};
+```
+
+---
+
+# 🎬 Media Abstraction
+
+## `media/frame.hpp`
+
+```cpp
+#pragma once
+#include <vector>
+#include "common/types.hpp"
+
+struct Frame {
+    std::vector<u8> data;
+    u32 timestamp;
+};
+```
+
+---
+
+## `media/encoder.hpp`
+
+```cpp
+#pragma once
+#include "frame.hpp"
+
+class IEncoder {
+public:
+    virtual ~IEncoder() = default;
+    virtual Frame encode(const Frame& raw) = 0;
+};
+```
+
+👉 потом вставишь FFmpeg/x264
+
+---
+
+# ⚙️ Pipeline Model
+
+## `pipeline/stage.hpp`
+
+```cpp
+#pragma once
+#include <thread>
+#include <atomic>
+
+class Stage {
+public:
+    virtual ~Stage() = default;
+
+    void start() {
+        running_ = true;
+        thread_ = std::thread([this]{ run(); });
+    }
+
+    void stop() {
+        running_ = false;
+        if (thread_.joinable()) thread_.join();
+    }
+
+protected:
+    virtual void run() = 0;
+
+    std::atomic<bool> running_{false};
+    std::thread thread_;
+};
+```
+
+---
+
+# 🚀 Sender Pipeline
+
+## `sender/sender_pipeline.cpp`
+
+```cpp
+class SenderPipeline {
+public:
+    void run() {
+        while (running_) {
+            Frame frame = source_->capture();
+
+            Frame encoded = encoder_->encode(frame);
+
+            auto pkt = packetizer_->packetize(encoded.data, frame.timestamp);
+
+            socket_->send(serialize(pkt), remote_);
+        }
+    }
+
+private:
+    std::unique_ptr<ICameraSource> source_;
+    std::unique_ptr<IEncoder> encoder_;
+    std::unique_ptr<RtpPacketizer> packetizer_;
+    std::unique_ptr<UdpSocket> socket_;
+    Endpoint remote_;
+};
+```
+
+---
+
+# 🖥 Receiver Pipeline
+
+## `receiver/receiver_pipeline.cpp`
+
+```cpp
+class ReceiverPipeline {
+public:
+    void run() {
+        while (running_) {
+            std::vector<u8> buffer(1500);
+            Endpoint sender;
+
+            int len = socket_->recv(buffer, sender);
+            if (len <= 0) continue;
+
+            auto pkt = deserialize(buffer);
+
+            jitter_.push(pkt);
+
+            RtpPacket out;
+            if (jitter_.pop(out)) {
+                auto frame = depacketizer_.process(out);
+                auto decoded = decoder_->decode(frame);
+                renderer_->render(decoded);
+            }
+        }
+    }
+
+private:
+    UdpSocket socket_;
+    JitterBuffer jitter_;
+};
+```
+
+---
+
+# 🔥 Что делает этот skeleton “production-like”
+
+✅ разделение на слои (network / rtp / media)
+✅ pipeline architecture
+✅ thread model
+✅ lock-free структуры
+✅ готов к расширению (FFmpeg / GStreamer)
+✅ легко добавить:
+
+* RTCP
+* bitrate adaptation
+* retransmission (NACK)
+* FEC
+
+---
+
+# 🚀 Что добавить дальше (очень рекомендую)
+
+1. RTP fragmentation (MTU ~1200 bytes)
+2. RTCP Receiver Report
+3. Packet loss recovery (NACK)
+4. H264 NALU parsing
+5. latency metrics
+
+---
+Отлично, давай сразу **реальную интеграцию FFmpeg (libavcodec)** в твой pipeline — не игрушечную, а такую, которую можно показать на интервью.
+
+Я дам:
+
+* ✅ production-style encoder класс
+* ✅ правильный lifecycle (init → encode → flush)
+* ✅ zero-copy-ish подход (насколько возможно с FFmpeg)
+* ✅ H.264 (самое релевантное под вакансию)
+* ✅ готово для RTP packetizer
+
+---
+
+# 📦 Зависимости
+
+В CMake:
+
+```cmake
+find_package(PkgConfig REQUIRED)
+
+pkg_check_modules(AVCODEC REQUIRED libavcodec)
+pkg_check_modules(AVUTIL REQUIRED libavutil)
+pkg_check_modules(SWSCALE REQUIRED libswscale)
+
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${AVCODEC_INCLUDE_DIRS}
+    ${AVUTIL_INCLUDE_DIRS}
+)
+
+target_link_libraries(${PROJECT_NAME}
+    ${AVCODEC_LIBRARIES}
+    ${AVUTIL_LIBRARIES}
+    ${SWSCALE_LIBRARIES}
+)
+```
+
+---
+
+# 🎬 Encoder Interface (расширим)
+
+```cpp
+// media/encoder.hpp
+#pragma once
+#include "frame.hpp"
+#include <vector>
+
+class IEncoder {
+public:
+    virtual ~IEncoder() = default;
+
+    // может вернуть несколько пакетов (важно!)
+    virtual std::vector<Frame> encode(const Frame& raw) = 0;
+
+    virtual std::vector<Frame> flush() = 0;
+};
+```
+
+---
+
+# 🧠 FFmpeg H264 Encoder (реальный код)
+
+## `media/ffmpeg_h264_encoder.hpp`
+
+```cpp
+#pragma once
+
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libavutil/opt.h>
+#include <libavutil/imgutils.h>
+}
+
+#include "encoder.hpp"
+
+class FFmpegH264Encoder : public IEncoder {
+public:
+    FFmpegH264Encoder(int width, int height, int fps, int bitrate);
+    ~FFmpegH264Encoder();
+
+    std::vector<Frame> encode(const Frame& raw) override;
+    std::vector<Frame> flush() override;
+
+private:
+    void init();
+    void init_frame();
+
+private:
+    int width_;
+    int height_;
+    int fps_;
+    int bitrate_;
+
+    AVCodecContext* ctx_{nullptr};
+    AVFrame* frame_{nullptr};
+    AVPacket* pkt_{nullptr};
+
+    int pts_{0};
+};
+```
+
+---
+
+## `media/ffmpeg_h264_encoder.cpp`
+
+```cpp
+#include "ffmpeg_h264_encoder.hpp"
+#include <stdexcept>
+#include <cstring>
+
+FFmpegH264Encoder::FFmpegH264Encoder(int w, int h, int fps, int bitrate)
+    : width_(w), height_(h), fps_(fps), bitrate_(bitrate) {
+    init();
+}
+
+FFmpegH264Encoder::~FFmpegH264Encoder() {
+    avcodec_free_context(&ctx_);
+    av_frame_free(&frame_);
+    av_packet_free(&pkt_);
+}
+
+void FFmpegH264Encoder::init() {
+    const AVCodec* codec = avcodec_find_encoder(AV_CODEC_ID_H264);
+    if (!codec) throw std::runtime_error("H264 encoder not found");
+
+    ctx_ = avcodec_alloc_context3(codec);
+    if (!ctx_) throw std::runtime_error("Failed to alloc codec context");
+
+    ctx_->width = width_;
+    ctx_->height = height_;
+    ctx_->time_base = AVRational{1, fps_};
+    ctx_->framerate = AVRational{fps_, 1};
+    ctx_->pix_fmt = AV_PIX_FMT_YUV420P;
+    ctx_->bit_rate = bitrate_;
+
+    // low latency tuning
+    av_opt_set(ctx_->priv_data, "preset", "veryfast", 0);
+    av_opt_set(ctx_->priv_data, "tune", "zerolatency", 0);
+
+    if (avcodec_open2(ctx_, codec, nullptr) < 0)
+        throw std::runtime_error("Failed to open codec");
+
+    frame_ = av_frame_alloc();
+    pkt_   = av_packet_alloc();
+
+    init_frame();
+}
+
+void FFmpegH264Encoder::init_frame() {
+    frame_->format = ctx_->pix_fmt;
+    frame_->width  = ctx_->width;
+    frame_->height = ctx_->height;
+
+    if (av_frame_get_buffer(frame_, 32) < 0)
+        throw std::runtime_error("Failed to alloc frame buffer");
+}
+```
+
+---
+
+# 🎯 Encode (ключевой кусок)
+
+```cpp
+std::vector<Frame> FFmpegH264Encoder::encode(const Frame& raw) {
+    std::vector<Frame> out;
+
+    // предполагаем raw.data = YUV420P
+    int y_size = width_ * height_;
+
+    std::memcpy(frame_->data[0], raw.data.data(), y_size); // Y
+    std::memcpy(frame_->data[1], raw.data.data() + y_size, y_size / 4); // U
+    std::memcpy(frame_->data[2], raw.data.data() + y_size + y_size / 4, y_size / 4); // V
+
+    frame_->pts = pts_++;
+
+    if (avcodec_send_frame(ctx_, frame_) < 0)
+        return out;
+
+    while (true) {
+        int ret = avcodec_receive_packet(ctx_, pkt_);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+            break;
+
+        Frame encoded;
+        encoded.timestamp = frame_->pts;
+        encoded.data.assign(pkt_->data, pkt_->data + pkt_->size);
+
+        out.push_back(std::move(encoded));
+
+        av_packet_unref(pkt_);
+    }
+
+    return out;
+}
+```
+
+---
+
+# 🧹 Flush
+
+```cpp
+std::vector<Frame> FFmpegH264Encoder::flush() {
+    std::vector<Frame> out;
+
+    avcodec_send_frame(ctx_, nullptr);
+
+    while (avcodec_receive_packet(ctx_, pkt_) == 0) {
+        Frame encoded;
+        encoded.data.assign(pkt_->data, pkt_->data + pkt_->size);
+        out.push_back(std::move(encoded));
+
+        av_packet_unref(pkt_);
+    }
+
+    return out;
+}
+```
+
+---
+
+# 📡 Встраивание в pipeline
+
+Теперь sender становится:
+
+```cpp
+auto encoded_frames = encoder_->encode(frame);
+
+for (auto& f : encoded_frames) {
+    auto pkt = packetizer_->packetize(f.data, f.timestamp);
+    socket_->send(serialize(pkt), remote_);
+}
+```
+
+---
+
+# ⚠️ Важные моменты (то, что спрашивают на интервью)
+
+## 1. Почему encode возвращает vector?
+
+👉 Потому что:
+
+* 1 input frame → N packets
+* B-frames / buffering
+
+---
+
+## 2. Почему YUV420P?
+
+👉 стандарт для H.264
+👉 минимум bandwidth
+
+---
+
+## 3. Почему zerolatency?
+
+```cpp
+av_opt_set(ctx_->priv_data, "tune", "zerolatency", 0);
+```
+
+👉 отключает:
+
+* B-frames
+* reordering delay
+
+---
+
+## 4. Где bottleneck?
+
+👉 memcpy (можно оптимизировать через):
+
+* AVFrame external buffers
+* DMA / zero-copy (embedded)
+
+---
+
+## 5. Где fragmentation?
+
+👉 сейчас нет → нужно для RTP:
+
+* H264 NAL units
+* FU-A fragmentation
+
+---
+
+# 🔥 Что добавить, чтобы это стало “топ проектом”
+
+## 1. H264 NALU parsing
+
+разделить:
+
+```text
+SPS / PPS / IDR / P-frames
+```
+
+---
+
+## 2. RTP H264 packetization (RFC 6184)
+
+* Single NAL
+* FU-A
+
+---
+
+## 3. Hardware encoder (🔥)
+
+если скажешь:
+
+> можно заменить на VAAPI / NVENC / V4L2 M2M
+
+— это прям сильный сигнал
+
+---
+
+## 4. Adaptive bitrate
+
+менять:
+
+```cpp
+ctx_->bit_rate = new_rate;
+```
+
+---
+
+> интегрировал FFmpeg encoder через libavcodec, настроил zerolatency профиль, и встроил его в RTP pipeline с возможностью дальнейшей адаптации bitrate и packetization.
+
+---
+Отлично — вот это уже **самый “мясной” кусок**, который реально отличает сильного кандидата.
+
+Сделаем **RTP packetization для H.264 по RFC 6184**, включая:
+
+* ✅ Single NAL unit
+* ✅ FU-A fragmentation (ключевое)
+* ✅ правильные RTP headers
+* ✅ MTU-safe отправку
+* ✅ production-style код
+
+---
+
+# 🧠 Что важно понимать (коротко)
+
+H.264 поток = набор **NAL units**:
+
+```text
+[SPS][PPS][IDR][P][P]...
+```
+
+Но:
+
+* RTP packet ≤ MTU (~1200 bytes)
+* NAL unit может быть 50KB+
+
+👉 значит нужно **резать (fragment)** → FU-A
+
+---
+
+# 📦 Структура
+
+```bash
+rtp/
+ ├── h264_packetizer.hpp
+ ├── h264_packetizer.cpp
+```
+
+---
+
+# 📡 Формат FU-A
+
+## FU Indicator (1 byte)
+
+```
+F | NRI | Type=28
+```
+
+## FU Header (1 byte)
+
+```
+S | E | R | Type(original)
+```
+
+* S = start
+* E = end
+
+---
+
+# 🧱 Header helpers
+
+## `h264_packetizer.hpp`
+
+```cpp
+#pragma once
+#include "rtp_packet.hpp"
+#include <vector>
+
+class H264Packetizer {
+public:
+    H264Packetizer(u32 ssrc, size_t mtu = 1200);
+
+    std::vector<RtpPacket> packetize(const std::vector<uint8_t>& nalu, u32 timestamp);
+
+private:
+    RtpPacket make_single_nalu(const std::vector<uint8_t>& nalu, u32 ts);
+    std::vector<RtpPacket> make_fu_a(const std::vector<uint8_t>& nalu, u32 ts);
+
+private:
+    u16 sequence_{0};
+    u32 ssrc_;
+    size_t mtu_;
+};
+```
+
+---
+
+# 🚀 Реализация
+
+## `h264_packetizer.cpp`
+
+```cpp
+#include "h264_packetizer.hpp"
+
+H264Packetizer::H264Packetizer(u32 ssrc, size_t mtu)
+    : ssrc_(ssrc), mtu_(mtu) {}
+
+std::vector<RtpPacket> H264Packetizer::packetize(
+    const std::vector<uint8_t>& nalu,
+    u32 ts
+) {
+    // если помещается — отправляем как есть
+    if (nalu.size() <= mtu_ - 12) { // 12 bytes RTP header
+        return { make_single_nalu(nalu, ts) };
+    }
+
+    return make_fu_a(nalu, ts);
+}
+```
+
+---
+
+# ✅ Single NAL Unit
+
+```cpp
+RtpPacket H264Packetizer::make_single_nalu(
+    const std::vector<uint8_t>& nalu,
+    u32 ts
+) {
+    RtpPacket pkt;
+
+    pkt.header.sequence_number = sequence_++;
+    pkt.header.timestamp = ts;
+    pkt.header.ssrc = ssrc_;
+    pkt.header.marker = 1;
+
+    pkt.payload = nalu;
+
+    return pkt;
+}
+```
+
+---
+
+# 🔥 FU-A Fragmentation (ключ)
+
+```cpp
+std::vector<RtpPacket> H264Packetizer::make_fu_a(
+    const std::vector<uint8_t>& nalu,
+    u32 ts
+) {
+    std::vector<RtpPacket> packets;
+
+    const uint8_t nal_header = nalu[0];
+
+    const uint8_t nal_f  = nal_header & 0x80;
+    const uint8_t nal_nri = nal_header & 0x60;
+    const uint8_t nal_type = nal_header & 0x1F;
+
+    const uint8_t fu_indicator = nal_f | nal_nri | 28; // FU-A type
+    const size_t max_payload = mtu_ - 12 - 2; // RTP + FU headers
+
+    size_t offset = 1; // skip original NAL header
+
+    bool start = true;
+
+    while (offset < nalu.size()) {
+        size_t chunk_size = std::min(max_payload, nalu.size() - offset);
+
+        bool end = (offset + chunk_size) >= nalu.size();
+
+        RtpPacket pkt;
+
+        pkt.header.sequence_number = sequence_++;
+        pkt.header.timestamp = ts;
+        pkt.header.ssrc = ssrc_;
+        pkt.header.marker = end ? 1 : 0;
+
+        pkt.payload.resize(2 + chunk_size);
+
+        // FU indicator
+        pkt.payload[0] = fu_indicator;
+
+        // FU header
+        uint8_t fu_header = 0;
+        if (start) fu_header |= 0x80;
+        if (end)   fu_header |= 0x40;
+
+        fu_header |= nal_type;
+
+        pkt.payload[1] = fu_header;
+
+        // payload
+        std::memcpy(&pkt.payload[2], &nalu[offset], chunk_size);
+
+        packets.push_back(std::move(pkt));
+
+        offset += chunk_size;
+        start = false;
+    }
+
+    return packets;
+}
+```
+
+---
+
+# 🧪 Пример использования
+
+```cpp
+auto nalus = extract_nalus(encoded_frame.data);
+
+for (auto& nalu : nalus) {
+    auto packets = packetizer.packetize(nalu, timestamp);
+
+    for (auto& pkt : packets) {
+        socket.send(serialize(pkt), remote);
+    }
+}
+```
+
+---
+
+# ⚠️ ВАЖНО: NALU extraction
+
+FFmpeg дает:
+
+* Annex B (с `0x000001`)
+  ИЛИ
+* AVCC
+
+👉 нужно парсить:
+
+```cpp
+std::vector<std::vector<uint8_t>> extract_nalus(...)
+```
+
+---
+
+# 🧠 Что тебя спросят
+
+## ❓ Почему FU-A?
+
+👉 потому что:
+
+* MTU ограничение (~1500)
+* UDP fragmentation нельзя доверять
+
+---
+
+## ❓ Почему marker bit только в конце?
+
+👉 marker = end of frame
+
+---
+
+## ❓ Где SPS/PPS?
+
+👉 нужно отправлять:
+
+* перед IDR
+* или через SDP
+
+---
+
+## ❓ Что при packet loss?
+
+👉 потеря одного FU → весь NAL битый
+👉 решения:
+
+* RTCP NACK
+* FEC
+
+---
+
+# 🔥 Улучшения (очень сильные)
+
+## 1. STAP-A (aggregation)
+
+несколько мелких NAL в один пакет
+
+---
+
+## 2. SPS/PPS injection
+
+```cpp
+if (is_idr(nalu)) {
+    send(sps);
+    send(pps);
+}
+```
+
+---
+
+## 3. Zero-copy
+
+вместо memcpy:
+
+* scatter/gather (sendmsg)
+
+---
+
+## 4. pacing (очень важно)
+
+не слать burst:
+
+```text
+sleep_between_packets()
+```
+
+---
+
+> реализовал RTP packetization для H.264 по RFC 6184, включая FU-A fragmentation, с учетом MTU и правильной семантики marker bit.
+
+Отлично — теперь делаем **обратную сторону: RTP depacketizer для H.264 (RFC 6184)** с нормальной reassembly логикой.
+
+Это уже прям **production-grade кусок**, потому что:
+
+* нужно корректно собирать FU-A
+* обрабатывать потери
+* не ломать pipeline
+
+---
+
+# 🧠 Что нужно поддержать
+
+Минимальный, но “правильный” набор:
+
+* ✅ Single NAL (type 1–23)
+* ✅ FU-A (type 28) ← главное
+* ❗ (опционально) STAP-A позже
+
+---
+
+# 📦 Структура
+
+```bash
+rtp/
+ ├── h264_depacketizer.hpp
+ ├── h264_depacketizer.cpp
+```
+
+---
+
+# 🧱 Интерфейс
+
+## `h264_depacketizer.hpp`
+
+```cpp
+#pragma once
+#include "rtp_packet.hpp"
+#include <optional>
+#include <vector>
+
+class H264Depacketizer {
+public:
+    // возвращает готовый NAL (если собран)
+    std::optional<std::vector<uint8_t>> process(const RtpPacket& pkt);
+
+private:
+    void reset();
+
+private:
+    std::vector<uint8_t> buffer_;
+    bool assembling_{false};
+
+    u16 expected_seq_{0};
+};
+```
+
+---
+
+# 🚀 Реализация
+
+## `h264_depacketizer.cpp`
+
+```cpp
+#include "h264_depacketizer.hpp"
+
+std::optional<std::vector<uint8_t>>
+H264Depacketizer::process(const RtpPacket& pkt) {
+    if (pkt.payload.empty())
+        return std::nullopt;
+
+    const uint8_t nal_header = pkt.payload[0];
+    const uint8_t nal_type = nal_header & 0x1F;
+
+    // =========================
+    // ✅ Single NAL
+    // =========================
+    if (nal_type >= 1 && nal_type <= 23) {
+        return pkt.payload;
+    }
+
+    // =========================
+    // 🔥 FU-A
+    // =========================
+    if (nal_type == 28) {
+        if (pkt.payload.size() < 2)
+            return std::nullopt;
+
+        const uint8_t fu_indicator = pkt.payload[0];
+        const uint8_t fu_header    = pkt.payload[1];
+
+        const bool start = fu_header & 0x80;
+        const bool end   = fu_header & 0x40;
+
+        const uint8_t original_type = fu_header & 0x1F;
+
+        const uint8_t reconstructed_header =
+            (fu_indicator & 0xE0) | original_type;
+
+        // =========================
+        // START fragment
+        // =========================
+        if (start) {
+            buffer_.clear();
+            buffer_.push_back(reconstructed_header);
+
+            buffer_.insert(
+                buffer_.end(),
+                pkt.payload.begin() + 2,
+                pkt.payload.end()
+            );
+
+            assembling_ = true;
+            expected_seq_ = pkt.header.sequence_number + 1;
+
+            return std::nullopt;
+        }
+
+        // =========================
+        // middle / end fragment
+        // =========================
+        if (!assembling_)
+            return std::nullopt;
+
+        // sequence check (важно!)
+        if (pkt.header.sequence_number != expected_seq_) {
+            // packet loss → drop frame
+            reset();
+            return std::nullopt;
+        }
+
+        expected_seq_++;
+
+        buffer_.insert(
+            buffer_.end(),
+            pkt.payload.begin() + 2,
+            pkt.payload.end()
+        );
+
+        if (end) {
+            assembling_ = false;
+            return buffer_;
+        }
+
+        return std::nullopt;
+    }
+
+    // unsupported (STAP-A и др.)
+    return std::nullopt;
+}
+```
+
+---
+
+# 🧹 Reset (важно)
+
+```cpp
+void H264Depacketizer::reset() {
+    buffer_.clear();
+    assembling_ = false;
+}
+```
+
+---
+
+# 🧪 Использование в pipeline
+
+```cpp
+auto nal = depacketizer.process(pkt);
+
+if (nal) {
+    decoder_->decode(*nal);
+}
+```
+
+---
+
+# ⚠️ КРИТИЧЕСКИЕ МОМЕНТЫ (на интервью!)
+
+## 1. Почему sequence check?
+
+```cpp
+if (pkt.header.sequence_number != expected_seq_)
+```
+
+👉 если потеряли хотя бы 1 fragment →
+👉 весь NAL поврежден → drop
+
+---
+
+## 2. Почему reconstruct header?
+
+```cpp
+(fu_indicator & 0xE0) | original_type;
+```
+
+👉 возвращаем оригинальный NAL header
+
+---
+
+## 3. Почему skip первые 2 байта?
+
+```cpp
+pkt.payload.begin() + 2
+```
+
+👉 это FU headers, не часть payload
+
+---
+
+## 4. Почему start отдельно?
+
+👉 потому что:
+
+* только в start есть информация для восстановления NAL header
+
+---
+
+# 🔥 Улучшения (очень сильные)
+
+## 1. Frame boundary (marker bit)
+
+```cpp
+if (pkt.header.marker)
+```
+
+👉 означает:
+
+* конец frame
+* можно собирать frame-level buffer
+
+---
+
+## 2. Jitter Buffer integration
+
+Правильный порядок:
+
+```text
+UDP → JitterBuffer → Depacketizer → Decoder
+```
+
+---
+
+## 3. Loss handling (production)
+
+Сейчас:
+
+```text
+loss → drop frame
+```
+
+Лучше:
+
+* RTCP NACK
+* concealment
+
+---
+
+## 4. STAP-A support
+
+несколько NAL в одном RTP пакете
+
+---
+
+## 5. SPS/PPS detection
+
+```text
+NAL type:
+7 = SPS
+8 = PPS
+5 = IDR
+```
+
+---
+
+# 🧠 Частый вопрос
+
+## ❓ Что будет при потере одного FU?
+
+👉 весь NAL ломается
+👉 decoder может:
+
+* крашнуться
+* или показать артефакты
+
+---
+
+> реализовал H.264 depacketizer с поддержкой FU-A reassembly, sequence validation и корректным восстановлением NAL units.
+
+---
+
+Отлично, это уже **реальный production-сигнал уровня senior**.
+Сделаем **RTCP NACK + retransmission pipeline**, максимально близко к тому, как это делают в реальных системах (WebRTC/VoIP).
+
+---
+
+# 🧠 Что реализуем
+
+## 📡 Receiver
+
+* детектит потерянные RTP пакеты (по sequence)
+* отправляет **RTCP NACK (Generic NACK, RFC 4585)**
+
+## 📤 Sender
+
+* хранит sent RTP packets (history buffer)
+* при получении NACK → делает retransmit
+
+---
+
+# 📦 Структура
+
+```bash
+rtcp/
+ ├── rtcp_packet.hpp
+ ├── rtcp_nack.hpp
+ ├── rtcp_nack.cpp
+
+sender/
+ ├── rtp_history.hpp
+
+receiver/
+ ├── loss_detector.hpp
+```
+
+---
+
+# 📡 RTCP NACK формат
+
+Generic NACK:
+
+```text
+PID  (16 bits)  → первый потерянный пакет
+BLP  (16 bits)  → битовая маска следующих 16 пакетов
+```
+
+Пример:
+
+```text
+PID = 100
+BLP = 0000000000000101
+```
+
+→ потеряны:
+
+* 100
+* 102
+* 104
+
+---
+
+# 🧱 RTCP NACK структура
+
+## `rtcp/rtcp_nack.hpp`
+
+```cpp
+#pragma once
+#include <vector>
+#include <cstdint>
+
+struct RtcpNack {
+    uint16_t pid;
+    uint16_t blp;
+};
+
+class RtcpNackBuilder {
+public:
+    static std::vector<RtcpNack> build(const std::vector<uint16_t>& lost_seq);
+};
+```
+
+---
+
+## `rtcp/rtcp_nack.cpp`
+
+```cpp
+#include "rtcp_nack.hpp"
+
+std::vector<RtcpNack>
+RtcpNackBuilder::build(const std::vector<uint16_t>& lost) {
+    std::vector<RtcpNack> result;
+
+    if (lost.empty()) return result;
+
+    size_t i = 0;
+
+    while (i < lost.size()) {
+        uint16_t pid = lost[i];
+        uint16_t blp = 0;
+
+        size_t j = i + 1;
+
+        while (j < lost.size()) {
+            int diff = lost[j] - pid - 1;
+
+            if (diff < 0 || diff >= 16)
+                break;
+
+            blp |= (1 << diff);
+            ++j;
+        }
+
+        result.push_back({pid, blp});
+        i = j;
+    }
+
+    return result;
+}
+```
+
+---
+
+# 🔍 Loss Detection (Receiver side)
+
+## `receiver/loss_detector.hpp`
+
+```cpp
+#pragma once
+#include <vector>
+#include <cstdint>
+
+class LossDetector {
+public:
+    std::vector<uint16_t> on_packet(uint16_t seq);
+
+private:
+    uint16_t last_seq_{0};
+    bool initialized_{false};
+};
+```
+
+---
+
+## Реализация
+
+```cpp
+#include "loss_detector.hpp"
+
+std::vector<uint16_t>
+LossDetector::on_packet(uint16_t seq) {
+    std::vector<uint16_t> lost;
+
+    if (!initialized_) {
+        last_seq_ = seq;
+        initialized_ = true;
+        return lost;
+    }
+
+    uint16_t expected = last_seq_ + 1;
+
+    while (expected != seq) {
+        lost.push_back(expected);
+        expected++;
+    }
+
+    last_seq_ = seq;
+    return lost;
+}
+```
+
+---
+
+# 📤 RTP History (Sender side)
+
+## `sender/rtp_history.hpp`
+
+```cpp
+#pragma once
+#include "rtp_packet.hpp"
+#include <unordered_map>
+
+class RtpHistory {
+public:
+    void store(const RtpPacket& pkt);
+    bool get(uint16_t seq, RtpPacket& out);
+
+private:
+    static constexpr size_t MAX_SIZE = 1024;
+
+    std::unordered_map<uint16_t, RtpPacket> buffer_;
+};
+```
+
+---
+
+## Реализация
+
+```cpp
+#include "rtp_history.hpp"
+
+void RtpHistory::store(const RtpPacket& pkt) {
+    if (buffer_.size() > MAX_SIZE) {
+        buffer_.erase(buffer_.begin());
+    }
+
+    buffer_[pkt.header.sequence_number] = pkt;
+}
+
+bool RtpHistory::get(uint16_t seq, RtpPacket& out) {
+    auto it = buffer_.find(seq);
+    if (it == buffer_.end())
+        return false;
+
+    out = it->second;
+    return true;
+}
+```
+
+---
+
+# 🔁 Retransmission Logic
+
+## Sender side
+
+```cpp
+void handle_nack(const std::vector<RtcpNack>& nacks) {
+    for (const auto& nack : nacks) {
+        // PID
+        retransmit(nack.pid);
+
+        // BLP
+        for (int i = 0; i < 16; ++i) {
+            if (nack.blp & (1 << i)) {
+                retransmit(nack.pid + i + 1);
+            }
+        }
+    }
+}
+```
+
+---
+
+## retransmit
+
+```cpp
+void retransmit(uint16_t seq) {
+    RtpPacket pkt;
+    if (history_.get(seq, pkt)) {
+        socket_.send(serialize(pkt), remote_);
+    }
+}
+```
+
+---
+
+# 📥 Receiver integration
+
+```cpp
+auto lost = loss_detector_.on_packet(pkt.header.sequence_number);
+
+if (!lost.empty()) {
+    auto nacks = RtcpNackBuilder::build(lost);
+
+    for (auto& nack : nacks) {
+        socket_.send(serialize_rtcp(nack), sender_addr);
+    }
+}
+```
+
+---
+
+# ⚠️ ВАЖНЫЕ production моменты
+
+## 1. Не спамить NACK
+
+👉 нужно:
+
+* rate limit
+* не слать повторно слишком часто
+
+---
+
+## 2. RTT-aware retransmission
+
+👉 если RTT большой → retransmit может не успеть
+
+---
+
+## 3. History window
+
+```cpp
+MAX_SIZE = bitrate * RTT
+```
+
+пример:
+
+```text
+2 Mbps * 100ms ≈ 25KB → ~200 packets
+```
+
+---
+
+## 4. Duplicate suppression
+
+Receiver должен игнорировать:
+
+```text
+retransmitted packets
+```
+
+---
+
+# 🔥 Улучшения (очень сильные)
+
+## 1. RTX stream (как в WebRTC)
+
+отдельный SSRC для retransmission
+
+---
+
+## 2. FEC (Forward Error Correction)
+
+вместо retransmit
+
+---
+
+## 3. Congestion Control
+
+если много NACK:
+
+```text
+↓ bitrate
+```
+
+---
+
+> реализовал RTCP NACK (RFC 4585) с bitmask-based loss reporting и sender-side retransmission через RTP history buffer.
+
+> * учитывал RTT и ограничивал частоту NACK
+
+---
+
+# 🚀 Итог
+
+* FFmpeg encoder ✅
+* RTP H264 packetizer (FU-A) ✅
+* depacketizer ✅
+* jitter buffer ✅
+* RTCP NACK + retransmit ✅
+
+👉 это по сути **mini WebRTC stack**
+

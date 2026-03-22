@@ -12,3 +12,4 @@ vcpkg_installed/
 .DS_Store
 test_results/
 FFmpeg/
+CLAUDE.md
