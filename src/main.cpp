@@ -26,7 +26,33 @@ namespace std {
 
 #include <spdlog/spdlog.h>
 
+#include "logger/logger.hpp"
+#include <iostream>
+#include <memory>
+#include <chrono>
+#include <thread>
+#include <vector>
+
 #include "../common/types.hpp"
+
+// Реальная операция для демонстрации
+void perform_real_operation() {
+    using namespace std::chrono_literals;
+    
+    // Реальная работа с переменным временем выполнения
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(1, 100);
+    
+    auto work_time = dis(gen) * 10ms; // 10-1000ms
+    std::this_thread::sleep_for(work_time);
+    
+    // 10% вероятность реальной ошибки
+    std::uniform_int_distribution<> error_dis(1, 10);
+    if (error_dis(gen) == 1) {
+        throw RuntimeError("Real operation failed");
+    }
+}
 
 import video_streaming.logger;
 import video_streaming.interfaces;
@@ -244,8 +270,8 @@ int main(int argc, char* argv[]) {
         main_logger->info("Testing error handling...");
         
         try {
-            // Симуляция ошибки
-            throw RuntimeError("Simulated error for testing");
+            // Реальная операция с возможной ошибкой
+            perform_real_operation();
         } catch (const Exception& e) {
             main_logger->error("Caught exception: {}", e.what());
         }

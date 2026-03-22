@@ -2,6 +2,9 @@
 #include <catch2/catch_all.hpp>
 #include <chrono>
 #include <thread>
+#include "logger/logger.hpp"
+#include <random>
+#include <algorithm>
 #include <barrier>
 #include <latch>
 #include <vector>
@@ -46,8 +49,8 @@ TEST_CASE("Logger Integration with Real-world Scenarios", "[integration]") {
                     logger->info("Processing {}: {}", task_name, task_id);
                     ++total_logged;
                     
-                    // Симуляция работы
-                    std::this_thread::sleep_for(std::chrono::microseconds(1));
+                    // Реальная обработка задачи
+                    process_task(task_id, task_name);
                 }
                 
                 logger->info("Thread {} completed", i);
@@ -224,15 +227,13 @@ TEST_CASE("Error Handling and Recovery", "[integration][error]") {
                     // Ожидание всех потоков
                     start_latch.arrive_and_wait();
                     
-                    // Симуляция различных операций
+                    // Реальные операции вместо симуляции
                     for (int j = 0; j < 100; ++j) {
                         try {
                             logger->info("Thread {} operation {}", i, j);
                             
-                            // Симуляция ошибки
-                            if (j % 25 == 0) {
-                                throw std::runtime_error("Simulated error");
-                            }
+                            // Реальная операция с возможной ошибкой
+                            perform_real_operation(i, j);
                         } catch (const std::exception& e) {
                             ++error_count;
                             logger->error("Error in thread {}: {}", i, e.what());

@@ -47,6 +47,7 @@ add_library(video_streaming_impl
     jitter/jitter_buffer.cpp
     common/time.cpp
     network/endpoint.cpp
+    rtp/rtsp_client.cpp
 )
 # The implementation depends on modules and pthreads
 target_link_libraries(video_streaming_impl PUBLIC video_streaming_modules PRIVATE Threads::Threads)
@@ -60,13 +61,17 @@ target_sources(pipeline_lib
 )
 target_link_libraries(pipeline_lib PUBLIC video_streaming_impl)
 
-# Отдельный тест для sender/receiver (вне BUILD_TESTING)
-add_executable(test_sender_receiver tests/test_sender_receiver.cpp)
-target_link_libraries(test_sender_receiver PRIVATE Threads::Threads)
+# Настоящий тест для sender/receiver (без симуляций)
+add_executable(test_real_video_streaming tests/test_real_video_streaming.cpp)
+target_link_libraries(test_real_video_streaming PRIVATE Threads::Threads video_streaming_impl)
 
-# Настоящий RTSP клиент для реальных источников
-add_executable(real_rtsp_client src/real_rtsp_client.cpp)
-target_link_libraries(real_rtsp_client PRIVATE Threads::Threads ws2_32)
+# Тестовый RTSP клиент
+add_executable(test_rtsp_client tests/test_rtsp_client.cpp)
+target_link_libraries(test_rtsp_client PRIVATE video_streaming_impl)
+if(WIN32)
+    target_link_libraries(test_rtsp_client PRIVATE ws2_32)
+    target_link_libraries(video_streaming_impl PRIVATE ws2_32)
+endif()
 
 # Главное приложение
 add_executable(video_streaming_app src/main.cpp)
