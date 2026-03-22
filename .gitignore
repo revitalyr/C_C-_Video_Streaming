@@ -1,0 +1,14 @@
+﻿.gitignore
+build/
+vcpkg_installed/
+.cache/
+.claude/
+.cursor/
+.islstudio/
+.vibecheck/
+.*.swp
+.*.swo
+*~
+.DS_Store
+test_results/
+FFmpeg/
