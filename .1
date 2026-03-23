@@ -1,4 +1,272 @@
-﻿
+﻿**убрать лишнее + усилить signal + упростить восприятие**
+
+---
+
+# 🔥 1. ГЛАВНАЯ ПРОБЛЕМА СЕЙЧАС — README СЛИШКОМ ДЛИННЫЙ
+
+Сейчас:
+
+* сверху — идеально (demo 🔥)
+* дальше — отлично (pipeline, metrics)
+* потом начинается:
+
+  * RTSP server
+  * logging
+  * C++26
+  * Catch2
+  * 1000 деталей
+
+👉 и ты теряешь внимание
+
+---
+
+## 💥 Как исправить (очень важно)
+
+Сделай **2 уровня README**:
+
+---
+
+## ✅ 1. TOP (первые 60–80 строк)
+
+Оставь:
+
+* demo ✅
+* pipeline ✅
+* metrics ✅
+* network simulation ✅
+
+---
+
+## ❌ 2. ВСЁ ЭТО — ВНИЗ или В ОТДЕЛЬНЫЙ DOC:
+
+Перенести:
+
+* RTSP server usage
+* logging system
+* C++26 features
+* Catch2 tests
+* profiling / valgrind
+
+👉 в:
+
+```text
+docs/ADVANCED.md
+docs/RTSP.md
+docs/DEV.md
+```
+
+---
+
+# 🔥 2. Ты снова “перепродал” C++ (это ошибка)
+
+Сейчас у тебя:
+
+```md
+C++26, modules, std::barrier, consteval...
+```
+
+👉 это второй раз наступаешь на те же грабли
+
+---
+
+## 💥 Проблема
+
+> “он больше про язык, чем про стриминг”
+
+---
+
+## ✅ Как исправить
+
+Сильно сократить до:
+
+```md
+## Tech Stack
+- C++ (modern, low-latency)
+- FFmpeg (H.264)
+- UDP/RTP
+```
+
+---
+
+И всё.
+
+👉 остальное — в ADVANCED.md
+
+---
+
+# 🔥 3. Нет явного RTP/RTCP блока (критично)
+
+У тебя есть это в коде, но не в README.
+
+---
+
+## 💥 Добавь прямо в TOP:
+
+```md
+## Streaming Protocols
+
+- RTP packetization (H.264, FU-A fragmentation)
+- RTP depacketization (NAL reassembly)
+- Sequence number tracking
+- Jitter buffer (packet reordering)
+- Packet loss handling
+```
+
+---
+
+# 🔥 4. Latency выглядит “слишком хорошим” (опасно)
+
+Ты пишешь:
+
+```text
+10-50 ms glass-to-glass
+```
+
+👉 это почти unreal для:
+
+* H264 software encode
+* без hardware accel
+
+---
+
+## ✅ Как исправить
+
+```md
+Latency (measured):
+- Local synthetic source: ~30–80 ms
+- With network simulation: 80–150 ms
+```
+
+И добавь:
+
+```md
+Measured via timestamp embedding (send → receive)
+```
+
+---
+
+# 🔥 5. ASCII preview — круто, но опасно
+
+Это:
+
+```text
+@@@@@@@@@@
+::::::::
+```
+
+👉 прикольно, но может выглядеть как “игрушка”
+
+---
+
+## 💥 Что сделать
+
+замени на SDL рендеринг
+
+---
+
+# 🔥 6. Нет “WHY” (очень важно)
+
+Сейчас:
+
+👉 есть “что сделал”
+👉 нет “почему так”
+
+---
+
+## 💥 Добавь блок:
+
+```md
+## Design Decisions
+
+- UDP over TCP → avoid head-of-line blocking
+- RTP → timing + packet ordering
+- FU-A → large frame fragmentation
+- Jitter buffer → handle reordering & delay
+```
+
+---
+
+# 🔥 7. Нет “Failure behavior” 
+
+---
+
+## 💥 Добавь:
+
+```md
+## Failure Handling
+
+- Packet loss → frame drop (no corruption)
+- Out-of-order packets → reordered in jitter buffer
+- Missing fragments → NAL discarded
+```
+
+---
+
+# 🟡 8. Project structure — норм, но можно лучше
+
+Сейчас:
+
+```text
+sender.cpp
+viewer.cpp
+network_sender.cpp
+```
+
+---
+
+## 💥 Лучше:
+
+```text
+apps/
+  sender/
+  viewer/
+  demo/
+
+core/
+  rtp/
+  jitter/
+  network/
+  media/
+```
+
+---
+
+# 🟡 9. Demo section — почти идеально, но можно добить
+
+Добавь:
+
+```md
+## Demo Scenarios
+
+1. Perfect network → baseline latency
+2. Packet loss → observe degradation
+3. High delay → jitter buffer behavior
+```
+
+---
+
+# 🟡 10. Убери лишний enterprise шум
+
+Удалить/сократить:
+
+* “MIT License…” (оставь внизу, но компактно)
+* “Contributing”
+* “Acknowledgments”
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+============================================================================================
 # 🔴 Главные проблемы (в порядке важности)
 
 ---

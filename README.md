@@ -1,22 +1,20 @@
-# Video Streaming System - C++
+# 🎬 Real-time Video Streaming System
 
-A high-performance, standards-compliant **real-time video streaming system** with **one-command demo**. This project implements end-to-end H.264 streaming with network simulation and live metrics.
+A high-performance **real-time video streaming system** implemented in modern C++.
+Focuses on low-latency H.264 streaming over UDP/RTP with custom network simulation.
 
-## 🎬 **KILLER DEMO - One Command Testing**
+## 🔥 Killer Demo: One Command
 
-### **Simple Usage**
+### 🚀 Run the Demo
 ```bash
-# Perfect network
+# 1. Perfect network (Baseline)
 ./demo.sh
 
-# 5% packet loss, 50ms delay, 10ms jitter  
-./demo.sh --loss 5 --delay 50 --jitter 10
+# 2. Real Video with SDL Window (Recommended)
+./demo.sh --mode rtsp
 
-# Real video playback with ffplay
-./demo.sh --mode ffplay --loss 5
-
-# Visual ASCII demo
-./demo.sh --mode visual --loss 10 --delay 100
+# 3. Network Simulation (Poor WiFi: 5% loss, 50ms delay)
+./demo.sh --loss 5 --delay 50 --jitter 20
 ```
 
 ### **Windows PowerShell**
@@ -219,8 +217,9 @@ cmake --build .
 
 ```
 video-streaming/
-├── demo.sh              # 🎬 One-command demo script
-├── demo.ps1             # 🎬 Windows PowerShell demo
+├── scripts/
+│   ├── demo.sh          # 🎬 One-command demo script
+│   └── demo.ps1         # 🎬 Windows PowerShell demo
 ├── src/
 │   ├── sender.cpp       # Basic H.264 UDP sender
 │   ├── viewer.cpp       # H.264 UDP receiver  
@@ -237,10 +236,7 @@ video-streaming/
 ## � **WHAT MAKES THIS PROJECT TOP-TIER**
 
 ### **✅ Visual Demo That Works**
-- **One-command testing**: `./demo.sh` just works
-- **Real video playback**: See actual H.264 video with ffplay
-- **Live metrics**: FPS, bitrate, loss, latency in real-time
-- **Network simulation**: Test real-world conditions
+- **One-command testing**: `./scripts/demo.sh` just works
 
 ### **✅ Engineering Excellence**  
 - **Low latency**: Glass-to-glass < 50ms on good networks
@@ -271,7 +267,7 @@ This project demonstrates **production-ready video streaming** that solves the m
 
 ### **Perfect Network Test**
 ```bash
-./demo.sh
+./scripts/demo.sh
 # Shows: 25 FPS, 2 Mbps, 0% loss, 15ms latency
 ```
 
