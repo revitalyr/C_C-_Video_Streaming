@@ -197,7 +197,8 @@ public:
         }
         
         // Packetize data
-        auto packets = packetizer_->packetize_frame(encoded_data);
+        uint32_t timestamp = static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time_).count());
+        auto packets = packetizer_->packetize_frame(encoded_data, timestamp);
         
         // Send packets
         Endpoint destination(config_.destination_ip, config_.port);
@@ -230,7 +231,7 @@ public:
                 }
             }
             
-            if (!socket_->send_to(packet.data(), packet.size(), destination)) {
+            if (!socket_->send_to(packet.serialize(), destination.ip_address, destination.port)) {
                 std::cerr << "❌ Failed to send packet" << std::endl;
                 success = false;
             }
@@ -251,15 +252,19 @@ public:
     Task<bool> send_frame_async(const Frame& frame) {
         std::cout << "🎬 Starting async frame sending..." << std::endl;
         
-        // Encode frame
-        auto encoded_data = co_await encode_frame_async(frame);
+        // Encode frame synchronously for now (Task implementation needs fixing)
+        auto encoded_data_task = encode_frame_async(frame);
+        auto encoded_data = encoded_data_task.get(); // Get result synchronously
+        
         if (encoded_data.empty()) {
             std::cerr << "❌ Frame encoding failed" << std::endl;
             co_return false;
         }
         
         // Send packets
-        bool success = co_await send_packets_async(encoded_data);
+        auto send_task = send_packets_async(encoded_data);
+        bool success = send_task.get(); // Get result synchronously
+        
         if (!success) {
             std::cerr << "❌ Packet sending failed" << std::endl;
             co_return false;
@@ -274,7 +279,7 @@ public:
         }
         
         std::cout << "✅ Frame sent successfully" << std::endl;
-        co_return true;
+        co_return success;
     }
     
     // Start the sender (non-blocking)
