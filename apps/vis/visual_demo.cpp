@@ -117,6 +117,10 @@ int main(int argc, char* argv[]) {
     receiver_config.bind_ip = "0.0.0.0";           // Listen on all interfaces
     sender_config.port = 5000;                     // Default port
     receiver_config.port = 5000;                     // Same port for receiver
+    sender_config.fps = 30;                         // Frame rate
+    sender_config.width = 1920;                     // Video width
+    sender_config.height = 1080;                    // Video height
+    sender_config.bitrate = 4000000;                // 4 Mbps bitrate
     
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -264,14 +268,17 @@ int main(int argc, char* argv[]) {
         VideoReceiver receiver(receiver_config);
 
         // Set receiver callback to store frame data and collect stats
+        std::cout << "🔧 Setting frame callback..." << std::endl;
         receiver.set_frame_callback([&](const Frame& frame) {
-        std::lock_guard<std::mutex> lock(render_mutex);
-        std::cout << "📹 Received frame: " << frame.width << "x" << frame.height 
-                  << " size: " << frame.data.size() << " bytes" << std::endl;
-        last_frame_data = frame.data; // Copy data
-        last_frame_width = frame.width;
-        last_frame_height = frame.height;
-        new_frame_available = true;
+            std::cout << "📹 CALLBACK: Received frame: " << frame.width << "x" << frame.height 
+                      << " size: " << frame.data.size() << " bytes" << std::endl;
+            std::lock_guard<std::mutex> lock(render_mutex);
+            std::cout << "📹 Received frame: " << frame.width << "x" << frame.height 
+                      << " size: " << frame.data.size() << " bytes" << std::endl;
+            last_frame_data = frame.data; // Copy data
+            last_frame_width = frame.width;
+            last_frame_height = frame.height;
+            new_frame_available = true;
         
         // Update statistics for visualization
         packets_received_total++;
@@ -312,12 +319,14 @@ int main(int argc, char* argv[]) {
         }
         
         std::cout << "✅ Both sender and receiver started!" << std::endl;
+        std::cout << "🔄 Entering main SDL loop..." << std::endl;
 
         // Main Loop
         uint32_t frame_count = 0;
         auto last_time = std::chrono::steady_clock::now();
         SDL_Event event;
         while (!g_shutdown.load()) {
+            std::cout << "🔄 SDL Loop iteration..." << std::endl;
             while (SDL_PollEvent(&event)) {
                 if (event.type == SDL_QUIT) g_shutdown.store(true);
                 if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) g_shutdown.store(true);
