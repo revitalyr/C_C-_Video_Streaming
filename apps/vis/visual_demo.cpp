@@ -131,16 +131,14 @@ int main(int argc, char* argv[]) {
 
         // Set receiver callback to store frame data
         receiver.set_frame_callback([&](const Frame& frame) {
-            std::lock_guard<std::mutex> lock(render_mutex);
-            
-            std::cout << "📹 Received frame: " << frame.width << "x" << frame.height 
-                      << " size: " << frame.data.size() << " bytes" << std::endl;
-            
-            last_frame_data = frame.data; // Copy data
-            last_frame_width = frame.width;
-            last_frame_height = frame.height;
-            new_frame_available = true;
-        });
+        std::lock_guard<std::mutex> lock(render_mutex);
+        std::cout << "📹 Received frame: " << frame.width << "x" << frame.height 
+                  << " size: " << frame.data.size() << " bytes" << std::endl;
+        last_frame_data = frame.data; // Copy data
+        last_frame_width = frame.width;
+        last_frame_height = frame.height;
+        new_frame_available = true;
+    });
 
         // Start streaming
         std::cout << "🔧 Starting receiver on port " << receiver_config.port << std::endl;
@@ -189,9 +187,10 @@ int main(int argc, char* argv[]) {
                     
                     if (texture && !last_frame_data.empty()) {
                         size_t y_size = tex_width * tex_height;
+                        size_t uv_size = y_size / 4;
                         const uint8_t* y_plane = last_frame_data.data();
                         const uint8_t* u_plane = y_plane + y_size;
-                        const uint8_t* v_plane = u_plane + y_size + (y_size / 4);
+                        const uint8_t* v_plane = u_plane + uv_size;
                         
                 SDL_UpdateYUVTexture(
                     texture, nullptr,
