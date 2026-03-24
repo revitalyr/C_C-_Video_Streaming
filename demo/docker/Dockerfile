@@ -1,20 +1,31 @@
-# Используем официальный образ Node.js как базовый образ
-FROM node:14-alpine
+# Base image with build tools and FFmpeg/SDL dependencies
+FROM ubuntu:22.04
 
-# Устанавливаем рабочий каталог внутри контейнера
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    pkg-config \
+    libavcodec-dev \
+    libavformat-dev \
+    libavutil-dev \
+    libswscale-dev \
+    libsdl2-dev \
+    libsdl2-ttf-dev \
+    wget \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install newer CMake (3.28+)
+RUN wget https://github.com/Kitware/CMake/releases/download/v3.30.0/cmake-3.30.0-linux-x86_64.sh -O cmake.sh && chmod +x cmake.sh && ./cmake.sh --skip-license --prefix=/usr/local && rm cmake.sh
+
+# Copy project source code
 WORKDIR /app
-
-# Копируем package.json и package-lock.json в рабочий каталог
-COPY package*.json ./
-
-# Установливаем зависимости
-RUN npm install
-
-# Копируем остальные файлы проекта в рабочий каталог
 COPY . .
 
-# Составляем приложение
-RUN npm run build
-
-# Устанавливаем команду для запуска приложения
-CMD ["npm", "start"]
+# Build the project
+RUN mkdir build && cd build && \
+    cmake .. && \
+    cmake --build .

@@ -168,6 +168,7 @@ void VideoReceiver::receive_loop() {
                 received_data, m_config.max_frame_size, sender_endpoint);
             
             if (bytes_received > 0) {
+                m_logger->debug("Received {} bytes from {}", bytes_received, sender_endpoint.ip_address);
                 process_rtp_packet(received_data);
             } else if (bytes_received < 0) {
                 // Ошибка приема
@@ -187,12 +188,20 @@ void VideoReceiver::receive_loop() {
 }
  
 void VideoReceiver::process_rtp_packet(const std::vector<uint8_t>& packet) {
+    m_logger->debug("Processing RTP packet of size {} bytes", packet.size());
+    
     // Депакетизация RTP
     RtpPacket rtp_packet;
     // packet is vector, deserialize takes span
     if (!rtp_packet.deserialize(packet)) { 
+        m_logger->error("Failed to deserialize RTP packet");
         return;
     }
+    
+    m_logger->debug("RTP packet: seq={}, ts={}, payload_size={}", 
+                    rtp_packet.header.sequence_number, 
+                    rtp_packet.header.timestamp,
+                    rtp_packet.payload.size());
     
     // Correct flow: Push RTP packet to Jitter Buffer for reordering
     m_jitter_buffer->push(rtp_packet);

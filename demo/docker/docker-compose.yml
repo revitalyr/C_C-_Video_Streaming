@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # Базовый сервис для сборки проекта
+  base:
+    build:
+      context: ../..
+      dockerfile: demo/docker/Dockerfile
+    image: video-streaming-base
+
+  # Сервис-отправитель (стример)
+  sender:
+    image: video-streaming-base
+    depends_on:
+      - base
+    command: /app/build/network_sender --port 5000 --client receiver
+    networks:
+      - streaming_net
+
+  # Сервис-приемник
+  receiver:
+    image: video-streaming-base
+    depends_on:
+      - base
+    volumes:
+      - ./output:/app/output # Папка для выгрузки архивов
+    # Команда для viewer, который будет слушать и сохранять.
+    # Для простоты, мы будем использовать viewer, который выводит в консоль.
+    # В реальном приложении здесь был бы кастомный билд, который пишет в файл.
+    command: /app/build/viewer --port 5000
+    networks:
+      - streaming_net
+
+networks:
+  streaming_net:
+    driver: bridge

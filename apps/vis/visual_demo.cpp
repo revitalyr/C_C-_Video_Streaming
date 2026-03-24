@@ -51,20 +51,27 @@ void render_gradient_background(SDL_Renderer* renderer, int width, int height, a
     // Create smooth color transition over 4 seconds
     float phase = (elapsed % 4000) / 4000.0f * 2.0f * M_PI;
     
-    // Calculate RGB values with smooth sine wave transitions (more subtle)
-    uint8_t r = static_cast<uint8_t>((sin(phase) * 0.3f + 0.5f) * 20 + 15);  // Dark red to medium red
-    uint8_t g = static_cast<uint8_t>((sin(phase + 2.0f) * 0.3f + 0.5f) * 20 + 15);  // Dark green to medium green  
-    uint8_t b = static_cast<uint8_t>((sin(phase + 4.0f) * 0.3f + 0.5f) * 30 + 20);  // Dark blue to medium blue
+    // Calculate RGB values with smooth sine wave transitions (very vibrant)
+    uint8_t r = static_cast<uint8_t>((sin(phase) * 0.5f + 0.5f) * 80 + 50);  // Bright red
+    uint8_t g = static_cast<uint8_t>((sin(phase + 2.0f) * 0.5f + 0.5f) * 80 + 50);  // Bright green  
+    uint8_t b = static_cast<uint8_t>((sin(phase + 4.0f) * 0.5f + 0.5f) * 120 + 80); // Bright blue
+    
+    // Debug: Print gradient info every 2 seconds
+    static int debug_counter = 0;
+    if (elapsed - debug_counter > 2000) {
+        std::cout << "🌈 Gradient: RGB(" << (int)r << "," << (int)g << "," << (int)b << ") phase=" << phase << std::endl;
+        debug_counter = elapsed;
+    }
     
     // Create semi-transparent gradient effect
     for (int y = 0; y < height; y += 2) {
         float gradient_factor = (float)y / height;
-        uint8_t gradient_r = static_cast<uint8_t>(r * (1.0f - gradient_factor * 0.2f));
-        uint8_t gradient_g = static_cast<uint8_t>(g * (1.0f - gradient_factor * 0.2f));
-        uint8_t gradient_b = static_cast<uint8_t>(b * (1.0f - gradient_factor * 0.2f));
+        uint8_t gradient_r = static_cast<uint8_t>(r * (1.0f - gradient_factor * 0.3f));
+        uint8_t gradient_g = static_cast<uint8_t>(g * (1.0f - gradient_factor * 0.3f));
+        uint8_t gradient_b = static_cast<uint8_t>(b * (1.0f - gradient_factor * 0.3f));
         
-        // Make background semi-transparent (alpha = 100)
-        SDL_SetRenderDrawColor(renderer, gradient_r, gradient_g, gradient_b, 100);
+        // Make background semi-transparent (alpha = 220 for visibility)
+        SDL_SetRenderDrawColor(renderer, gradient_r, gradient_g, gradient_b, 220);
         SDL_RenderDrawLine(renderer, 0, y, width, y);
         SDL_RenderDrawLine(renderer, 0, y + 1, width, y + 1);
     }
@@ -139,9 +146,18 @@ int main(int argc, char* argv[]) {
     signal(SIGTERM, signal_handler);
     
     // Initialize SDL
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-        std::cerr << "❌ SDL Init failed: " << SDL_GetError() << std::endl;
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        std::cerr << "❌ SDL initialization failed: " << SDL_GetError() << std::endl;
         return -1;
+    }
+    
+    std::cout << "✅ SDL initialized successfully" << std::endl;
+    
+    // Get display info
+    SDL_DisplayMode display_mode;
+    if (SDL_GetCurrentDisplayMode(0, &display_mode) == 0) {
+        std::cout << "🖥️ Display: " << display_mode.w << "x" << display_mode.h 
+                  << " @ " << display_mode.refresh_rate << "Hz" << std::endl;
     } 
 
     if (TTF_Init() != 0) {
@@ -150,10 +166,16 @@ int main(int argc, char* argv[]) {
     }
     
     // Create Window & Renderer
+    std::cout << "🪟 Creating SDL window..." << std::endl;
+    
+    // Use full resolution from start to avoid resize
+    int window_width = sender_config.width;
+    int window_height = sender_config.height;
+    
     SDL_Window* window = SDL_CreateWindow(
         "Visual Demo (Sender + Receiver)",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        sender_config.width, sender_config.height,
+        window_width, window_height,
         SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN
     );
     
@@ -163,6 +185,41 @@ int main(int argc, char* argv[]) {
         SDL_Quit();
         return -1;
     }
+    
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (!renderer) {
+        std::cerr << "❌ SDL Renderer failed: " << SDL_GetError() << std::endl;
+        SDL_DestroyWindow(window);
+        TTF_Quit();
+        SDL_Quit();
+        return -1;
+    }
+    
+    std::cout << "✅ SDL renderer created successfully" << std::endl;
+    
+    // Force initial render to make window visible
+    SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
+    SDL_RenderClear(renderer);
+    SDL_RenderPresent(renderer);
+    std::cout << "🎨 Initial render completed" << std::endl;
+    
+    // Force window to front
+    SDL_RaiseWindow(window);
+    SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
+    
+    std::cout << "✅ SDL window created successfully" << std::endl;
+    
+    // Force window to show
+    SDL_ShowWindow(window);
+    SDL_RaiseWindow(window);
+    
+    // Check if window is actually visible
+    Uint32 window_flags = SDL_GetWindowFlags(window);
+    std::cout << "🪟 Window flags: " << std::hex << window_flags << std::dec;
+    if (window_flags & SDL_WINDOW_SHOWN) std::cout << " (SHOWN)";
+    if (window_flags & SDL_WINDOW_HIDDEN) std::cout << " (HIDDEN)";
+    if (window_flags & SDL_WINDOW_FULLSCREEN) std::cout << " (FULLSCREEN)";
+    std::cout << std::endl;
 
       TTF_Font* font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16);
     if (!font) {
@@ -172,7 +229,6 @@ int main(int argc, char* argv[]) {
         return -1;
     }
     
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     SDL_Texture* texture = nullptr;
     int tex_width = 0;
     int tex_height = 0;
@@ -228,6 +284,15 @@ int main(int argc, char* argv[]) {
                 packets_lost_total++;
             }
         }
+        
+        // Debug: Print packet reception stats
+        if (packets_received_total % 50 == 0) {
+            double actual_loss = packets_lost_total > 0 ? 
+                (double)packets_lost_total / (packets_received_total + packets_lost_total) * 100.0 : 0.0;
+            std::cout << "📊 Stats: Packets=" << packets_received_total 
+                      << " Lost=" << packets_lost_total 
+                      << " Loss=" << std::fixed << std::setprecision(1) << actual_loss << "%" << std::endl;
+        }
     });
 
         // Start streaming
@@ -267,12 +332,20 @@ int main(int argc, char* argv[]) {
                         tex_width = last_frame_width;
                         tex_height = last_frame_height;
                         
+                        std::cout << "🎨 Creating texture: " << tex_width << "x" << tex_height << std::endl;
+                        
                         texture = SDL_CreateTexture(
                             renderer, SDL_PIXELFORMAT_YV12, 
                             SDL_TEXTUREACCESS_STREAMING, tex_width, tex_height
                         );
                         
-                        SDL_SetWindowSize(window, tex_width, tex_height);
+                        if (!texture) {
+                            std::cerr << "❌ Failed to create texture: " << SDL_GetError() << std::endl;
+                            continue;
+                        }
+                        
+                        // Don't resize window - keep original size
+                        std::cout << "🎨 Texture created: " << tex_width << "x" << tex_height << std::endl;
                     }
                     
                     if (texture && !last_frame_data.empty()) {
@@ -304,54 +377,75 @@ int main(int argc, char* argv[]) {
                                      sender_config.packet_loss, packets_received_total, packets_lost_total);
             
             if (texture) {
+                // Set blend mode for semi-transparent video
+                SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+                SDL_SetTextureAlphaMod(texture, 200); // Make video semi-transparent
                 SDL_RenderCopy(renderer, texture, nullptr, nullptr);
             }
                 
-                // Render network metrics overlay (create once, reuse)
-                if (font && (!loss_texture || !delay_texture || !jitter_texture)) {
-                    // Cleanup old textures
-                    if (loss_texture) SDL_DestroyTexture(loss_texture);
-                    if (delay_texture) SDL_DestroyTexture(delay_texture);
-                    if (jitter_texture) SDL_DestroyTexture(jitter_texture);
+                // Render network metrics overlay (update dynamically)
+                if (font) {
+                    // Calculate actual loss percentage
+                    double actual_loss = packets_lost_total > 0 ? 
+                        (double)packets_lost_total / (packets_received_total + packets_lost_total) * 100.0 : 0.0;
+                    
+                    // Create dynamic text surfaces
+                    std::string loss_text = "Loss: " + std::to_string(sender_config.packet_loss) + "% (actual: " + 
+                                        std::to_string(actual_loss).substr(0, 4) + "%)";
+                    
+                    // Simulate dynamic delay and jitter based on network conditions
+                    int current_delay = sender_config.delay_ms + (rand() % 20 - 10); // ±10ms variation
+                    int current_jitter = sender_config.jitter_ms + (rand() % 10 - 5);  // ±5ms variation
+                    
+                    std::string delay_text = "Delay: " + std::to_string(current_delay) + "ms";
+                    std::string jitter_text = "Jitter: " + std::to_string(current_jitter) + "ms";
+                    std::string packets_text = "Packets: " + std::to_string(packets_received_total) + " sent, " + 
+                                           std::to_string(packets_lost_total) + " lost";
+                    
+                    // Debug: Print metrics every 50 frames
+                    if (packets_received_total % 50 == 0) {
+                        std::cout << "📊 Rendering metrics: " << loss_text << std::endl;
+                    }
                     
                     SDL_Color red = {255, 100, 100, 255};
                     SDL_Color yellow = {255, 255, 100, 255};
                     SDL_Color white = {255, 255, 255, 255};
-                    
-                    // Create text surfaces
-                    std::string loss_text = "Loss: " + std::to_string(sender_config.packet_loss) + "%";
-                    std::string delay_text = "Delay: " + std::to_string(sender_config.delay_ms) + "ms";
-                    std::string jitter_text = "Jitter: " + std::to_string(sender_config.jitter_ms) + "ms";
+                    SDL_Color green = {100, 255, 100, 255};
                     
                     SDL_Surface* loss_surface = TTF_RenderText_Solid(font, loss_text.c_str(), red);
                     SDL_Surface* delay_surface = TTF_RenderText_Solid(font, delay_text.c_str(), yellow);
                     SDL_Surface* jitter_surface = TTF_RenderText_Solid(font, jitter_text.c_str(), white);
+                    SDL_Surface* packets_surface = TTF_RenderText_Solid(font, packets_text.c_str(), green);
                     
-                    if (loss_surface && delay_surface && jitter_surface) {
+                    if (loss_surface && delay_surface && jitter_surface && packets_surface) {
                         // Create textures
                         loss_texture = SDL_CreateTextureFromSurface(renderer, loss_surface);
                         delay_texture = SDL_CreateTextureFromSurface(renderer, delay_surface);
                         jitter_texture = SDL_CreateTextureFromSurface(renderer, jitter_surface);
+                        SDL_Texture* packets_texture = SDL_CreateTextureFromSurface(renderer, packets_surface);
                         
-                        if (loss_texture && delay_texture && jitter_texture) {
+                        if (loss_texture && delay_texture && jitter_texture && packets_texture) {
                             // Set rectangles
                             loss_rect = {10, 10, loss_surface->w, loss_surface->h};
                             delay_rect = {10, 40, delay_surface->w, delay_surface->h};
                             jitter_rect = {10, 70, jitter_surface->w, jitter_surface->h};
+                            SDL_Rect packets_rect = {10, 100, packets_surface->w, packets_surface->h};
+                            
+                            // Render all textures
+                            SDL_RenderCopy(renderer, loss_texture, nullptr, &loss_rect);
+                            SDL_RenderCopy(renderer, delay_texture, nullptr, &delay_rect);
+                            SDL_RenderCopy(renderer, jitter_texture, nullptr, &jitter_rect);
+                            SDL_RenderCopy(renderer, packets_texture, nullptr, &packets_rect);
+                            
+                            SDL_DestroyTexture(packets_texture);
                         }
                         
                         // Cleanup surfaces
                         SDL_FreeSurface(loss_surface);
                         SDL_FreeSurface(delay_surface);
                         SDL_FreeSurface(jitter_surface);
+                        SDL_FreeSurface(packets_surface);
                     }
-                }
-                
-                // Render cached text textures
-                if (loss_texture && delay_texture && jitter_texture) {
-                    SDL_RenderCopy(renderer, loss_texture, nullptr, &loss_rect);
-                    SDL_RenderCopy(renderer, delay_texture, nullptr, &delay_rect);
-                    SDL_RenderCopy(renderer, jitter_texture, nullptr, &jitter_rect);
                 }
                 
             SDL_RenderPresent(renderer);
