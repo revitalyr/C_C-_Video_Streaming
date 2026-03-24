@@ -99,21 +99,23 @@ echo ""
 # Function to cleanup background processes
 cleanup() {
     echo ""
-    echo "🛑 Stopping demo..."
+    echo " Stopping demo..."
     
     # Kill all child processes
     pkill -P $$ 2>/dev/null || true
     
     # Kill specific demo processes
     pkill -f "network_sender" 2>/dev/null || true
+    pkill -f "simple_sender" 2>/dev/null || true
     pkill -f "viewer" 2>/dev/null || true
+    pkill -f "simple_viewer" 2>/dev/null || true
     pkill -f "ffplay" 2>/dev/null || true
     pkill -f "visual_demo" 2>/dev/null || true
     
     # Wait a moment for processes to die
     sleep 1
     
-    echo "✅ Demo stopped."
+    echo " Demo stopped."
     exit 0
 }
 
@@ -123,21 +125,21 @@ trap cleanup SIGINT SIGTERM
 case $MODE in
     "basic")
         echo "🎬 Starting Basic UDP Streaming Demo..."
-        echo "📡 Sender: ./build/network_sender --loss $LOSS --delay $DELAY --jitter $JITTER"
-        echo "📺 Viewer: ./build/viewer"
+        echo "📡 Sender: ./build/simple_sender --loss $LOSS --delay $DELAY --jitter $JITTER"
+        echo "📺 Viewer: ./build/simple_viewer"
         echo ""
         echo "🔥 Press Ctrl+C to stop both sender and viewer"
         echo ""
         
         # Start viewer in background
-        ./build/viewer &
+        ./build/simple_viewer &
         VIEWER_PID=$!
         
         # Give viewer time to start
         sleep 1
         
         # Start sender in foreground
-        ./build/network_sender --loss $LOSS --delay $DELAY --jitter $JITTER
+        ./build/simple_sender --loss $LOSS --delay $DELAY --jitter $JITTER
         
         # This will block until sender is stopped
         wait $VIEWER_PID

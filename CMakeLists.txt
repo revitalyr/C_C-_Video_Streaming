@@ -130,6 +130,22 @@ else()
     target_link_libraries(sender PRIVATE Threads::Threads)
 endif()
 
+# Simple modular viewer (H.264 UDP receiver)
+add_executable(simple_viewer apps/basic/simple_viewer.cpp)
+if(FFMPEG_FOUND)
+    target_link_libraries(simple_viewer PRIVATE video_streaming_impl PkgConfig::FFMPEG)
+else()
+    target_link_libraries(simple_viewer PRIVATE video_streaming_impl)
+endif()
+
+# Simple modular sender (H.264 UDP streaming)
+add_executable(simple_sender apps/basic/simple_sender.cpp)
+if(FFMPEG_FOUND)
+    target_link_libraries(simple_sender PRIVATE video_streaming_impl PkgConfig::FFMPEG)
+else()
+    target_link_libraries(simple_sender PRIVATE video_streaming_impl)
+endif()
+
 # Network video sender (with packet loss/delay simulation)
 add_executable(network_sender apps/basic/network_sender.cpp)
 target_include_directories(network_sender PRIVATE 
