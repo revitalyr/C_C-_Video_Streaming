@@ -148,3 +148,30 @@
 [+0.023s] [4cfa6] [logger.ixx:113] VideoSender thread started
 [+0.291s] [4cfa5] [logger.ixx:118] Error sending packet to decoder: -1094995529
 [+0.293s] [4cfa5] [logger.ixx:118] Error sending packet to decoder: -1094995529
+[+0.000s] [4d070] [logger.ixx:113] Initializing VideoSender with config: port=5000, fps=30, 1920x1080
+[+0.013s] [4d070] [logger.ixx:113] VideoSender initialized successfully
+[+0.013s] [4d070] [logger.ixx:113] Initializing VideoReceiver with config: port=5000, jitter_buffer_size=50
+[+0.016s] [4d070] [logger.ixx:113] VideoReceiver initialized successfully
+[+0.016s] [4d070] [logger.ixx:113] VideoReceiver started successfully on 0.0.0.0:5000
+[+0.016s] [4d093] [logger.ixx:113] VideoReceiver thread started
+[+0.018s] [4d070] [logger.ixx:113] VideoSender started successfully
+[+0.018s] [4d094] [logger.ixx:113] VideoSender thread started
+[+0.177s] [4d093] [logger.ixx:118] Error sending packet to decoder: -1094995529
+[+0.178s] [4d093] [logger.ixx:118] Error sending packet to decoder: -1094995529
+[+0.179s] [4d093] [logger.ixx:118] Error sending packet to decoder: -1094995529
+[+3.244s] [4d093] [logger.ixx:118] Error sending packet to decoder: -1094995529
+[+3.244s] [4d093] [logger.ixx:118] Error sending packet to decoder: -1094995529
+[+4.705s] [4d093] [logger.ixx:118] Error sending packet to decoder: -1094995529
+[+4.705s] [4d093] [logger.ixx:118] Error sending packet to decoder: -1094995529
+[+5.962s] [4d093] [logger.ixx:118] Error sending packet to decoder: -1094995529
+[+5.962s] [4d093] [logger.ixx:118] Error sending packet to decoder: -1094995529
+[+7.282s] [4d093] [logger.ixx:118] Error sending packet to decoder: -1094995529
+[+7.282s] [4d093] [logger.ixx:118] Error sending packet to decoder: -1094995529
+[+8.565s] [4d093] [logger.ixx:118] Error sending packet to decoder: -1094995529
+[+8.568s] [4d093] [logger.ixx:118] Error sending packet to decoder: -1094995529
+[+8.718s] [4d070] [logger.ixx:113] Stopping VideoSender...
+[+8.757s] [4d094] [logger.ixx:113] VideoSender thread stopped
+[+8.758s] [4d070] [logger.ixx:113] VideoSender stopped. Final stats: frames=60, packets=565, bytes=156899, fps=7.76
+[+8.758s] [4d070] [logger.ixx:113] Stopping VideoReceiver...
+[+8.762s] [4d093] [logger.ixx:113] VideoReceiver thread stopped
+[+8.762s] [4d070] [logger.ixx:113] VideoReceiver stopped. Final stats: frames=112, packets=502, loss=0.00%, fps=14.85
