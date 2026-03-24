@@ -14,11 +14,11 @@ if(PkgConfig_FOUND)
     pkg_check_modules(FFMPEG QUIET IMPORTED_TARGET libavcodec libavdevice libavfilter libavformat libavutil libswresample libswscale)
 endif()
 
+find_package(spdlog CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
+
 # If pkg-config failed, try vcpkg (Windows)
 if(NOT FFMPEG_FOUND)
-    find_package(spdlog CONFIG REQUIRED)
-    find_package(fmt CONFIG REQUIRED)
-    
     # Try vcpkg FFmpeg
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET libavcodec libavdevice libavfilter libavformat libavutil libswresample libswscale)
@@ -43,6 +43,7 @@ add_library(video_streaming_modules)
 target_sources(video_streaming_modules
     PUBLIC
     FILE_SET cxx_modules TYPE CXX_MODULES FILES
+    core/common/types.ixx
     core/common/logger.ixx
     core/common/interfaces.ixx
     core/common/std.ixx
@@ -51,6 +52,14 @@ target_sources(video_streaming_modules
     core/transport/rtp/h264_packetizer.ixx
     core/transport/rtp/h264_depacketizer.ixx
     core/video/jitter/jitter_buffer.ixx
+    core/transport/rtp/rtp_packet.ixx
+    core/transport/network/udp_socket.ixx
+    core/video/media/synthetic_encoder.ixx
+    core/video/media/frame.ixx
+    core/transport/network/endpoint.ixx
+    core/transport/network/receiver.ixx
+    core/transport/network/sender.ixx
+    core/common/time.ixx
     PRIVATE
     core/common/logger.cpp # Module implementation
     core/session/sender/video_sender.cpp
@@ -58,14 +67,21 @@ target_sources(video_streaming_modules
     core/transport/rtp/h264_packetizer.cpp
     core/transport/rtp/h264_depacketizer.cpp
     core/video/jitter/jitter_buffer.cpp
+    core/transport/rtp/rtp_packet.cpp
+    core/transport/network/udp_socket.cpp
+    core/video/media/synthetic_encoder.cpp
+    core/video/media/frame.cpp
+    core/transport/network/endpoint.cpp
+    core/transport/network/receiver.cpp
+    core/transport/network/sender.cpp
+    core/common/time.cpp
 )
 
 # Link libraries based on what was found
 if(FFMPEG_FOUND)
     target_link_libraries(video_streaming_modules PRIVATE PkgConfig::FFMPEG)
-else()
-    target_link_libraries(video_streaming_modules PRIVATE spdlog::spdlog PUBLIC fmt::fmt)
 endif()
+target_link_libraries(video_streaming_modules PRIVATE spdlog::spdlog PUBLIC fmt::fmt)
 # Add include directories for modules so they can find core headers (e.g. logger.cpp needs udp_socket.hpp)
 target_include_directories(video_streaming_modules PUBLIC 
     ${CMAKE_CURRENT_SOURCE_DIR}/core
@@ -76,14 +92,6 @@ target_include_directories(video_streaming_modules PUBLIC
 
 # Library for traditional C++ source files
 add_library(video_streaming_impl
-    core/transport/network/sender.cpp
-    core/transport/network/receiver.cpp
-    core/transport/network/udp_socket.cpp
-    core/video/media/frame.cpp
-    core/video/media/synthetic_encoder.cpp
-    core/transport/rtp/rtp_packet.cpp
-    core/common/time.cpp
-    core/transport/network/endpoint.cpp
     core/transport/rtp/rtsp_client.cpp
     # High-level components
 )
@@ -260,13 +268,12 @@ if(WIN32)
 endif()
 
 # Tests temporarily disabled due to module issues and old dependencies
-# if(BUILD_TESTING)
-#     enable_testing()
-#     add_executable(video_streaming_tests 
-#         tests/test_logger.cpp
-#         tests/test_interfaces.cpp
-#         tests/test_integration.cpp
-#         tests/test_pipeline.cpp
-#     )
-#     target_link_libraries(video_streaming_tests PRIVATE pipeline_lib Catch2::Catch2WithMain)
-# endif()
+if(BUILD_TESTING)
+    enable_testing()
+    add_executable(video_streaming_tests 
+        tests/test_integration.cpp
+        tests/test_pipeline.cpp
+    )
+    # Link against pipeline_lib which pulls in core modules
+    target_link_libraries(video_streaming_tests PRIVATE pipeline_lib Catch2::Catch2WithMain)
+endif()

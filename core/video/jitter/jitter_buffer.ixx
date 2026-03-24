@@ -7,7 +7,8 @@ module;
 #include <cstdint>
 #include <mutex>
 
-#include "rtp/rtp_packet.hpp"
+import video_streaming.rtp.packet;
+import video_streaming.common.time;
 
 export module video_streaming.jitter;
 

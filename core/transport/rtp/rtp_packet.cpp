@@ -1,5 +1,13 @@
-#include "rtp_packet.hpp"
+module;
+
 #include <cstring>
+#include <span>
+#include <cstdint>
+
+module video_streaming.rtp.packet;
+import video_streaming.common.types;
+
+namespace video_streaming {
 
 RtpPacket::RtpPacket(u32 ssrc, u16 sequence, u32 timestamp, u8 payload_type) {
     header.version = RTP_VERSION;
@@ -23,7 +31,8 @@ Bytes RtpPacket::serialize() const {
     return data;
 }
 
-bool RtpPacket::deserialize(const Bytes& data) {
+bool RtpPacket::deserialize(std::span<const uint8_t> data_span) {
+    Bytes data(data_span.begin(), data_span.end()); // Convert span to vector for internal helpers
     if (data.size() < RTP_HEADER_SIZE) {
         return false;
     }
@@ -37,6 +46,11 @@ bool RtpPacket::deserialize(const Bytes& data) {
     }
     
     return is_valid();
+}
+
+bool RtpPacket::is_valid() const {
+    return header.version == RTP_VERSION && 
+           header.payload_type == RTP_PAYLOAD_TYPE_H264;
 }
 
 Bytes RtpSerializer::serialize_header(const RtpHeader& header) {
@@ -113,3 +127,5 @@ void RtpSerializer::write_u32(Bytes& data, size_t offset, u32 value) {
     data[offset + 2] = static_cast<u8>((value >> 8) & 0xFF);
     data[offset + 3] = static_cast<u8>(value & 0xFF);
 }
+
+} // namespace video_streaming

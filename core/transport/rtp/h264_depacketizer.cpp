@@ -1,8 +1,17 @@
-#include "h264_depacketizer.hpp"
-#include <cstring>
+module;
 
-std::vector<Bytes> H264Depacketizer::process_packet(const RtpPacket& packet) {
-    std::vector<Bytes> complete_frames;
+#include <cstring>
+#include <vector>
+
+module video_streaming.rtp.h264_depacketizer;
+import video_streaming.common.types;
+import video_streaming.media.frame; // For NalType
+import video_streaming.rtp.packet;
+
+namespace video_streaming {
+
+std::vector<EncodedFrame> H264Depacketizer::process_packet(const RtpPacket& packet) {
+    std::vector<EncodedFrame> complete_frames;
     
     if (!packet.is_valid() || packet.payload.empty()) {
         return complete_frames;
@@ -15,13 +24,13 @@ std::vector<Bytes> H264Depacketizer::process_packet(const RtpPacket& packet) {
     if (payload_type == static_cast<u8>(NalType::FU_A)) {
         // FU-A packet - needs reassembly
         auto frame = process_fu_a_packet(packet);
-        if (!frame.empty()) {
+        if (!frame.data.empty()) {
             complete_frames.push_back(std::move(frame));
         }
     } else {
         // Single NALU packet
         auto frame = process_single_nalu(packet);
-        if (!frame.empty()) {
+        if (!frame.data.empty()) {
             complete_frames.push_back(std::move(frame));
         }
     }
@@ -29,22 +38,23 @@ std::vector<Bytes> H264Depacketizer::process_packet(const RtpPacket& packet) {
     return complete_frames;
 }
 
-Bytes H264Depacketizer::process_single_nalu(const RtpPacket& packet) {
-    Bytes frame;
+EncodedFrame H264Depacketizer::process_single_nalu(const RtpPacket& packet) {
+    EncodedFrame frame;
+    frame.timestamp = packet.header.timestamp;
     
     // Add H.264 start code
-    frame.push_back(0x00);
-    frame.push_back(0x00);
-    frame.push_back(0x01);
+    frame.data.push_back(0x00);
+    frame.data.push_back(0x00);
+    frame.data.push_back(0x01);
     
     // Add NALU payload
-    frame.insert(frame.end(), packet.payload.begin(), packet.payload.end());
+    frame.data.insert(frame.data.end(), packet.payload.begin(), packet.payload.end());
     
     m_complete_frames++;
     return frame;
 }
 
-Bytes H264Depacketizer::process_fu_a_packet(const RtpPacket& packet) {
+EncodedFrame H264Depacketizer::process_fu_a_packet(const RtpPacket& packet) {
     if (packet.payload.size() < 2) {
         return {}; // Invalid FU-A packet
     }
@@ -101,16 +111,18 @@ bool H264Depacketizer::is_fu_a_complete(const FuState& state) const {
     return state.started && !state.payload.empty();
 }
 
-Bytes H264Depacketizer::assemble_fu_a_frame(const FuState& state) {
-    Bytes frame;
+EncodedFrame H264Depacketizer::assemble_fu_a_frame(const FuState& state) {
+    EncodedFrame frame;
+    // Timestamp could be tracked in FuState or derived
+    // For now we don't have it in state, would need to store it
     
     // Add H.264 start code
-    frame.push_back(0x00);
-    frame.push_back(0x00);
-    frame.push_back(0x01);
+    frame.data.push_back(0x00);
+    frame.data.push_back(0x00);
+    frame.data.push_back(0x01);
     
     // Add reassembled payload
-    frame.insert(frame.end(), state.payload.begin(), state.payload.end());
+    frame.data.insert(frame.data.end(), state.payload.begin(), state.payload.end());
     
     return frame;
 }
@@ -147,3 +159,5 @@ void H264Depacketizer::reset() {
     m_reordered_packets = 0;
     m_complete_frames = 0;
 }
+
+} // namespace video_streaming

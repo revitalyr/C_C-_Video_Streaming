@@ -1,4 +1,7 @@
-#include "sender.hpp"
+module;
+
+module video_streaming.network.sender;
+import video_streaming.common.types;
 
 namespace video_streaming {
 
@@ -11,17 +14,17 @@ Sender::~Sender() {
 }
 
 bool Sender::start() {
-    return m_socket.open();
+    return m_socket->open();
 }
 
 void Sender::stop() {
-    m_socket.close();
+    m_socket->close();
 }
 
 bool Sender::send(const RtpPacket& packet) {
     // Serialize RTP packet to bytes
     Bytes data = packet.serialize();
-    return m_socket.send(data, m_destination);
+    return m_socket->send(data, m_destination);
 }
 
 } // namespace video_streaming

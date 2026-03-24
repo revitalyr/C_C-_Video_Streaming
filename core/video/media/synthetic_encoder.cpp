@@ -1,102 +1,119 @@
-#include "synthetic_encoder.hpp"
+module;
+
 #include <cstring>
+#include <vector>
+#include <stdexcept>
+
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libavutil/opt.h>
+}
+
+module video_streaming.media.synthetic_encoder;
+import video_streaming.media.frame;
+import video_streaming.common.types;
+
+namespace video_streaming {
 
 SyntheticH264Encoder::SyntheticH264Encoder(int width, int height, int fps, int bitrate)
-    : m_width(width), m_height(height), m_fps(fps), m_bitrate(bitrate) {}
+{
+    init_encoder(width, height, fps, bitrate);
+}
 
-std::vector<Frame> SyntheticH264Encoder::encode(const Frame& raw_frame) {
-    std::vector<Frame> encoded_frames;
+SyntheticH264Encoder::~SyntheticH264Encoder() {
+    cleanup_encoder();
+}
+
+void SyntheticH264Encoder::init_encoder(int width, int height, int fps, int bitrate) {
+    m_codec = avcodec_find_encoder(AV_CODEC_ID_H264);
+    if (!m_codec) {
+        throw std::runtime_error("H.264 encoder not found");
+    }
+
+    m_codec_ctx = avcodec_alloc_context3(m_codec);
+    if (!m_codec_ctx) {
+        throw std::runtime_error("Could not allocate video codec context");
+    }
+
+    m_codec_ctx->bit_rate = bitrate;
+    m_codec_ctx->width = width;
+    m_codec_ctx->height = height;
+    m_codec_ctx->time_base = {1, 1000}; // Time base in milliseconds
+    m_codec_ctx->framerate = {fps, 1};
+    m_codec_ctx->gop_size = 10;
+    m_codec_ctx->max_b_frames = 0; // Low latency
+    m_codec_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
+
+    if (m_codec->id == AV_CODEC_ID_H264) {
+        av_opt_set(m_codec_ctx->priv_data, "preset", "ultrafast", 0);
+        av_opt_set(m_codec_ctx->priv_data, "tune", "zerolatency", 0);
+    }
+
+    if (avcodec_open2(m_codec_ctx, m_codec, nullptr) < 0) {
+        throw std::runtime_error("Could not open codec");
+    }
+
+    m_av_frame = av_frame_alloc();
+    m_av_packet = av_packet_alloc();
+    if (!m_av_frame || !m_av_packet) {
+        throw std::runtime_error("Could not allocate frame or packet");
+    }
+
+    m_av_frame->format = m_codec_ctx->pix_fmt;
+    m_av_frame->width = m_codec_ctx->width;
+    m_av_frame->height = m_codec_ctx->height;
+
+    if (av_frame_get_buffer(m_av_frame, 32) < 0) {
+        throw std::runtime_error("Could not allocate the video frame data");
+    }
+}
+
+void SyntheticH264Encoder::cleanup_encoder() {
+    if (m_codec_ctx) avcodec_free_context(&m_codec_ctx);
+    if (m_av_frame) av_frame_free(&m_av_frame);
+    if (m_av_packet) av_packet_free(&m_av_packet);
+}
+
+std::vector<EncodedFrame> SyntheticH264Encoder::encode(const Frame& raw_frame) {
+    std::vector<EncodedFrame> encoded_frames;
     
     if (!raw_frame.is_valid()) {
         return encoded_frames;
     }
-    
-    m_last_timestamp = raw_frame.timestamp;
-    
-    // Create synthetic NAL units based on frame type
-    if (m_frame_count % 30 == 0) { // Every 30 frames = key frame
-        // SPS
-        encoded_frames.push_back(create_synthetic_nalu(raw_frame, NalType::SPS));
-        // PPS  
-        encoded_frames.push_back(create_synthetic_nalu(raw_frame, NalType::PPS));
-        // IDR
-        encoded_frames.push_back(create_synthetic_nalu(raw_frame, NalType::IDR));
-    } else {
-        // P-frame
-        encoded_frames.push_back(create_synthetic_nalu(raw_frame, NalType::Slice));
+
+    // Prepare AVFrame
+    // Assuming raw_frame is YUV420P
+    if (av_frame_make_writable(m_av_frame) < 0) {
+        return encoded_frames;
     }
+
+    // Copy data from Frame to AVFrame
+    // Frame data is flat: Y...U...V
+    size_t y_size = m_codec_ctx->width * m_codec_ctx->height;
+    size_t u_size = y_size / 4;
     
-    m_frame_count++;
+    memcpy(m_av_frame->data[0], raw_frame.data.data(), y_size);
+    memcpy(m_av_frame->data[1], raw_frame.data.data() + y_size, u_size);
+    memcpy(m_av_frame->data[2], raw_frame.data.data() + y_size + u_size, u_size);
+
+    m_av_frame->pts = raw_frame.timestamp;
+
+    // Send frame to encoder
+    if (avcodec_send_frame(m_codec_ctx, m_av_frame) < 0) {
+        return encoded_frames;
+    }
+
+    // Receive packets
+    while (avcodec_receive_packet(m_codec_ctx, m_av_packet) >= 0) {
+        EncodedFrame encoded;
+        encoded.data.assign(m_av_packet->data, m_av_packet->data + m_av_packet->size);
+        encoded.timestamp = m_av_packet->pts;
+        encoded.is_keyframe = (m_av_packet->flags & AV_PKT_FLAG_KEY);
+        encoded_frames.push_back(std::move(encoded));
+        av_packet_unref(m_av_packet);
+    }
+
     return encoded_frames;
 }
 
-std::vector<Frame> SyntheticH264Encoder::flush() {
-    return {}; // Synthetic encoder doesn't buffer frames
-}
-
-Frame SyntheticH264Encoder::create_synthetic_nalu(const Frame& input, NalType type) {
-    Frame encoded_frame;
-    encoded_frame.timestamp = input.timestamp;
-    encoded_frame.width = input.width;
-    encoded_frame.height = input.height;
-    
-    // Create NALU header
-    Bytes nalu_header = create_nalu_header(type);
-    
-    // Create synthetic payload based on type
-    Bytes payload;
-    
-    switch (type) {
-        case NalType::SPS:
-            payload = {0x00, 0x16, // Profile, level
-                      0x4D, 0x40, 0x1E, // Width/height info
-                      0x88, 0x90, 0x00}; // Misc
-            encoded_frame.type = FrameType::IFrame;
-            break;
-            
-        case NalType::PPS:
-            payload = {0x06, 0x80, 0xC0, 0x28}; // PPS data
-            encoded_frame.type = FrameType::IFrame;
-            break;
-            
-        case NalType::IDR:
-            payload.resize(input.data.size() / 10); // Compressed representation
-            for (size_t i = 0; i < payload.size(); ++i) {
-                payload[i] = input.data[i * 10] ^ 0x55; // Simple "compression"
-            }
-            encoded_frame.type = FrameType::IFrame;
-            break;
-            
-        case NalType::Slice:
-            payload.resize(input.data.size() / 20); // Higher compression for P-frames
-            for (size_t i = 0; i < payload.size(); ++i) {
-                payload[i] = input.data[i * 20] ^ 0xAA; // Different pattern
-            }
-            encoded_frame.type = FrameType::PFrame;
-            break;
-            
-        default:
-            payload = {0x00};
-            encoded_frame.type = FrameType::Unknown;
-            break;
-    }
-    
-    // Add start code + NALU header + payload
-    add_start_code(encoded_frame.data);
-    encoded_frame.data.insert(encoded_frame.data.end(), nalu_header.begin(), nalu_header.end());
-    encoded_frame.data.insert(encoded_frame.data.end(), payload.begin(), payload.end());
-    
-    return encoded_frame;
-}
-
-Bytes SyntheticH264Encoder::create_nalu_header(NalType type) {
-    u8 header = static_cast<u8>(type) | 0x80; // Set forbidden bit to 0
-    return {header};
-}
-
-void SyntheticH264Encoder::add_start_code(Bytes& data) {
-    // Add H.264 start code (0x000001)
-    data.push_back(0x00);
-    data.push_back(0x00);
-    data.push_back(0x01);
-}
+} // namespace video_streaming

@@ -1,5 +1,15 @@
-#include "h264_packetizer.hpp"
+module;
+
 #include <cstring>
+#include <vector>
+#include <algorithm>
+
+module video_streaming.rtp.h264_packetizer;
+import video_streaming.common.types;
+import video_streaming.media.frame; // For NalType and constants
+import video_streaming.rtp.packet;
+
+namespace video_streaming {
 
 H264Packetizer::H264Packetizer(u32 ssrc, size_t mtu) 
     : m_ssrc(ssrc), m_sequence(0), m_mtu(mtu) {}
@@ -166,3 +176,5 @@ bool H264Packetizer::is_key_frame(const Bytes& nalu) const {
     NalType type = get_nal_type(nalu[0]);
     return type == NalType::IDR || type == NalType::SPS || type == NalType::PPS;
 }
+
+} // namespace video_streaming

@@ -1,4 +1,4 @@
-#include "udp_socket.hpp"
+module;
 
 #ifndef _WIN32
 #include <unistd.h>
@@ -9,6 +9,15 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #endif
+
+#include <iostream>
+#include <string>
+#include <vector>
+
+module video_streaming.network.udp_socket;
+import video_streaming.common.types;
+
+namespace video_streaming {
 
 #ifdef _WIN32
 static bool winsock_initialized = false;
@@ -285,3 +294,5 @@ bool UdpSocket::endpoint_to_sockaddr(const Endpoint& endpoint, struct sockaddr* 
     int result = inet_pton(AF_INET, endpoint.ip_address.c_str(), &(sin->sin_addr));
     return result == 1;
 }
+
+} // namespace video_streaming

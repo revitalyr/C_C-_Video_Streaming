@@ -9,6 +9,7 @@
 #include <SDL.h>
 
 import video_streaming.receiver;
+import video_streaming.media.frame;
 
 using namespace video_streaming;
 

@@ -1,19 +1,31 @@
-#define CATCH_CONFIG_MAIN
-#include <catch2/catch_all.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include <thread>
-import video_streaming.logger;
 #include <random>
 #include <algorithm>
 #include <barrier>
 #include <latch>
 #include <vector>
 #include <ranges>
+#include <format>
 
 import video_streaming.logger;
 import video_streaming.interfaces;
 
 using namespace video_streaming;
+
+// Dummy helper functions for tests
+void process_task(int id, const String& name) {
+    // Simulate work
+    std::this_thread::sleep_for(std::chrono::microseconds(10));
+}
+
+void perform_real_operation(int thread_id, int op_id) {
+    // Simulate operation that might fail
+    if (thread_id == 0 && op_id == 50) {
+        throw std::runtime_error("Simulated failure");
+    }
+}
 
 // C++26 integration tests
 TEST_CASE("Logger Integration with Real-world Scenarios", "[integration]") {

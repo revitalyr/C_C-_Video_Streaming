@@ -5,9 +5,9 @@
 #include <csignal>
 #include <mutex>
 #include <iomanip>
-#include "media/frame.hpp"
 
 import video_streaming.receiver;
+import video_streaming.media.frame;
 
 using namespace std::chrono_literals;
 using namespace video_streaming;
@@ -18,12 +18,14 @@ void signal_handler(int signal) {
     g_shutdown.store(true);
 }
 
-void print_metrics(VideoReceiver& viewer, std::chrono::steady_clock::duration elapsed) {
+void print_metrics(VideoReceiver& viewer, std::chrono::steady_clock::time_point start_time) {
     static uint64_t last_bytes = 0;
     
     auto stats = viewer.get_stats();
     
-    double seconds_elapsed = std::chrono::duration<double>(elapsed).count();
+    auto now = std::chrono::steady_clock::now();
+    std::chrono::duration<double> diff = now - start_time;
+    double seconds_elapsed = diff.count();
     double mbps = (stats.bytes_received - last_bytes) * 8.0 / (2.0 * 1024 * 1024);
     // FPS is already calculated in stats by the receiver
     double fps = stats.fps_actual;
@@ -76,7 +78,7 @@ int main(int argc, char* argv[]) {
         while (!g_shutdown.load()) {
             // Just wait and print metrics; stats are updated in background thread
             if (std::chrono::steady_clock::now() - last_metrics_time >= 2s) {
-                print_metrics(viewer, std::chrono::steady_clock::now() - start_time);
+                print_metrics(viewer, start_time);
                 last_metrics_time = std::chrono::steady_clock::now();
             }
             std::this_thread::sleep_for(100ms);

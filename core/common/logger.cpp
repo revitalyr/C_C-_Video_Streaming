@@ -2,12 +2,12 @@ module;
 
 #include <source_location>
 
-// Workaround for Clang modules consteval issue with SPDLOG_FMT_STRING
 #include <spdlog/common.h>
 #ifdef SPDLOG_FMT_STRING
 #undef SPDLOG_FMT_STRING
 #endif
 #define SPDLOG_FMT_STRING(x) (x)
+#define SPDLOG_FMT_EXTERNAL 1
 
 #include <spdlog/async.h>
 #include <spdlog/sinks/basic_file_sink.h>
@@ -20,14 +20,13 @@ module;
 #include <format>
 #include <iterator>
 
-#include "types.hpp"
-#include "network/udp_socket.hpp"
-
 #undef ERROR // Fix collision with Windows ERROR macro
 module video_streaming.logger;
 
 import video_streaming.interfaces;
 import video_streaming.std;
+import video_streaming.network.udp_socket;
+import video_streaming.common.types;
 
 // Logger class implementation
 namespace video_streaming {
@@ -129,7 +128,7 @@ void Logger::initialize_default_sinks(const String& name, LogLevel level, const 
     std::shared_ptr<spdlog::sinks::sink> file_sink;
     {
         static std::mutex s_sink_cache_mutex;
-        static UnorderedMap<String, std::shared_ptr<spdlog::sinks::sink>> s_sink_cache;
+        static std::unordered_map<String, std::shared_ptr<spdlog::sinks::sink>> s_sink_cache;
         std::lock_guard<std::mutex> lock(s_sink_cache_mutex);
         
         if (auto it = s_sink_cache.find(log_file); it != s_sink_cache.end()) {

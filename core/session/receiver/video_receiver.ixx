@@ -12,11 +12,6 @@ module;
 #include <chrono>
 #include <unordered_map>
 
-#include "common/types.hpp"
-#include "media/frame.hpp"
-#include "network/receiver.hpp"
-#include "network/udp_socket.hpp"
-
 extern "C" {
 struct AVCodecContext;
 struct AVFrame;
@@ -27,12 +22,17 @@ struct AVFormatContext;
 export module video_streaming.receiver;
 
 import video_streaming.logger;
+import video_streaming.interfaces;
+import video_streaming.network.receiver;
+import video_streaming.media.frame;
 import video_streaming.rtp.h264_depacketizer;
 import video_streaming.jitter;
+import video_streaming.network.udp_socket;
+import video_streaming.common.types;
 
 namespace video_streaming {
 
-export class VideoReceiver {
+export class VideoReceiver : public video_streaming::IRunnable {
 public:
     struct Config {
         uint16_t port = 5000;
@@ -48,8 +48,9 @@ public:
     explicit VideoReceiver(const Config& config);
     ~VideoReceiver();
 
-    bool start();
-    void stop();
+    bool start() override;
+    void stop() override;
+    bool is_running() const override { return m_running.load(); }
 
     void set_frame_callback(FrameCallback callback);
 
@@ -74,7 +75,6 @@ private:
     void rtsp_receive_loop();
     void process_rtp_packet(const std::vector<uint8_t>& packet);
     void process_jitter_buffer();
-    std::unique_ptr<Frame> assemble_frame(const std::vector<std::vector<uint8_t>>& nal_units);
     void update_stats();
 
     Config m_config;

@@ -1,18 +1,18 @@
 module;
 
-// Third-party library imports
-// Workaround for Clang modules consteval issue with SPDLOG_FMT_STRING
 #include <spdlog/common.h>
 #ifdef SPDLOG_FMT_STRING
 #undef SPDLOG_FMT_STRING
 #endif
 #define SPDLOG_FMT_STRING(x) (x)
+#define SPDLOG_FMT_EXTERNAL 1
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/daily_file_sink.h>
 #include <fmt/ranges.h>
+#include <unordered_map>
 
 // Standard library imports
 #include <memory>
@@ -25,7 +25,6 @@ module;
 #include <format>          // Добавлено для удобства форматирования
 #include <concepts>
 #include <string_view>
-#include "common/types.hpp"
 #undef ERROR
 
 export module video_streaming.logger;
@@ -33,6 +32,7 @@ export module video_streaming.logger;
 // C++23 module imports
 import video_streaming.interfaces;
 import video_streaming.std;
+import video_streaming.common.types;
 
 export namespace video_streaming {
 
@@ -56,7 +56,7 @@ enum class LogLevel {
 using SessionId = std::string;
 using ErrorMessage = std::string;
 using FileName = std::string;
-using Result = ::Result; // Re-export global Result type
+using Result = video_streaming::Result; // Re-export global Result type
 
 enum class SecurityEventType {
     LOGIN_ATTEMPT,
@@ -215,7 +215,7 @@ private:
     LoggerManager() = default;
     ~LoggerManager() = default;
     
-    UnorderedMap<String, std::unique_ptr<Logger>> m_loggers;
+    std::unordered_map<String, std::unique_ptr<Logger>> m_loggers;
     mutable std::mutex m_loggers_mutex;
     LogLevel m_global_level{LogLevel::INFO};
     FileName m_output_file{"video_streaming.log"};

@@ -5,13 +5,22 @@ module;
 #include <thread>
 #include <vector>
 #include <iostream>
+#include <memory>
+#include <algorithm>
+#include <optional>
 
+extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/error.h>
 #include <libavformat/avformat.h>
+}
 
 module video_streaming.receiver;
+import video_streaming.network.endpoint;
+import video_streaming.interfaces;
+import video_streaming.common.types;
+import video_streaming.rtp.packet;
 
 namespace video_streaming {
 
@@ -155,7 +164,7 @@ void VideoReceiver::receive_loop() {
     while (!m_stop_requested) {
         try {
             // Прием RTP пакета
-            Bytes received_bytes(packet_buffer.data(), packet_buffer.size());
+            Bytes received_bytes(packet_buffer.begin(), packet_buffer.end());
             auto bytes_received = m_socket->receive_from(
                 received_bytes, packet_buffer.size(), sender_endpoint);
             
@@ -181,86 +190,99 @@ void VideoReceiver::receive_loop() {
  
 void VideoReceiver::process_rtp_packet(const std::vector<uint8_t>& packet) {
     // Депакетизация RTP
-    auto nal_units = m_depacketizer->process_packet(packet);
-    if (nal_units.empty()) {
+    RtpPacket rtp_packet;
+    // packet is vector, deserialize takes span
+    if (!rtp_packet.deserialize(packet)) { 
         return;
     }
     
-    // Добавление NAL единиц в jitter buffer
-    for (const auto& nal_unit : nal_units) {
-        m_jitter_buffer->add_packet(nal_unit);
-    }
+    // Correct flow: Push RTP packet to Jitter Buffer for reordering
+    m_jitter_buffer->push(rtp_packet);
+    
+    // Depacketization happens in process_jitter_buffer() after ordering
     
     // Обновление статистики
     {
         std::lock_guard<std::mutex> lock(m_stats_mutex);
-        m_stats.packets_received += nal_units.size();
+        m_stats.packets_received++;
         m_stats.bytes_received += packet.size();
     }
 }
 
 void VideoReceiver::process_jitter_buffer() {
     // Получение готовых NAL единиц из jitter buffer
-    auto ready_packets = m_jitter_buffer->get_ready_packets();
-    if (ready_packets.empty()) {
-        return;
-    }
+    // Logic refactored to use pop() and depacketizer
+    RtpPacket packet;
     
-    // Сборка кадра из NAL единиц
-    auto frame = assemble_frame(ready_packets);
-    if (frame) {
-        // Добавление кадра в очередь вывода
-        {
-            std::lock_guard<std::mutex> lock(m_frame_queue_mutex);
-            m_frame_queue.push(std::move(frame));
+    while (m_jitter_buffer->pop(packet)) {
+        auto frames = m_depacketizer->process_packet(packet);
+        
+        for (const auto& encoded_frame : frames) {
+            if (encoded_frame.data.empty()) continue;
+
+            // Prepare AVPacket for decoder
+            av_packet_unref(m_packet_for_decoder);
+            m_packet_for_decoder->data = const_cast<uint8_t*>(encoded_frame.data.data());
+            m_packet_for_decoder->size = static_cast<int>(encoded_frame.data.size());
+            m_packet_for_decoder->pts = encoded_frame.timestamp;
             
-            // Ограничение размера очереди
-            while (m_frame_queue.size() > 10) {
-                m_frame_queue.pop();
+            // Send to decoder
+            int ret = avcodec_send_packet(m_codec_ctx, m_packet_for_decoder);
+            if (ret < 0) {
+                m_logger->warn("Error sending packet to decoder: {}", ret);
+                continue;
+            }
+            
+            // Receive decoded frames
+            while (avcodec_receive_frame(m_codec_ctx, m_decoded_frame) == 0) {
+                // Create Frame from AVFrame (YUV420P)
+                auto frame = std::make_unique<Frame>();
+                frame->width = m_decoded_frame->width;
+                frame->height = m_decoded_frame->height;
+                frame->format = PixelFormat::YUV420P;
+                frame->timestamp = m_decoded_frame->pts;
+                
+                // Copy data from AVFrame to Frame (flat buffer for YUV420P)
+                int width = frame->width;
+                int height = frame->height;
+                size_t y_size = width * height;
+                size_t uv_size = y_size / 4;
+                frame->data.resize(y_size + 2 * uv_size);
+                
+                uint8_t* dst_y = frame->data.data();
+                uint8_t* dst_u = dst_y + y_size;
+                uint8_t* dst_v = dst_u + uv_size;
+                
+                // Copy Y plane
+                av_image_copy_plane(dst_y, width, m_decoded_frame->data[0], m_decoded_frame->linesize[0], width, height);
+                
+                // Copy U plane
+                av_image_copy_plane(dst_u, width/2, m_decoded_frame->data[1], m_decoded_frame->linesize[1], width/2, height/2);
+                
+                // Copy V plane
+                av_image_copy_plane(dst_v, width/2, m_decoded_frame->data[2], m_decoded_frame->linesize[2], width/2, height/2);
+                
+                // Notify callback
+                if (m_frame_callback) {
+                    m_frame_callback(*frame);
+                }
+                
+                // Update stats
+                {
+                    std::lock_guard<std::mutex> lock(m_stats_mutex);
+                    m_stats.frames_decoded++;
+                    m_stats.frames_received++;
+                    
+                    // Recalculate FPS
+                    auto now = std::chrono::steady_clock::now();
+                    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_start_time);
+                    if (elapsed.count() > 0) {
+                        m_stats.fps_actual = (m_stats.frames_decoded * 1000.0) / elapsed.count();
+                    }
+                }
             }
         }
-        
-        m_frame_queue_cv.notify_one();
-        
-        // Обновление статистики
-        std::lock_guard<std::mutex> lock(m_stats_mutex);
-        m_stats.frames_received++;
-        
-        // Расчет фактического FPS
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_start_time);
-        if (elapsed.count() > 0) {
-            m_stats.fps_actual = (m_stats.frames_received * 1000.0) / elapsed.count();
-        }
     }
-}
-
-std::unique_ptr<Frame> VideoReceiver::assemble_frame(
-    const std::vector<std::vector<uint8_t>>& nal_units) {
-    
-    if (nal_units.empty()) {
-        return nullptr;
-    }
-    
-    auto frame = std::make_unique<Frame>();
-    
-    // Определение размера кадра
-    size_t total_size = 0;
-    for (const auto& nal_unit : nal_units) {
-        total_size += nal_unit.size();
-    }
-    
-    frame->data.resize(total_size);
-    // frame->timestamp will be set by decoder
-    
-    // Копирование NAL единиц в буфер кадра
-    size_t offset = 0;
-    for (const auto& nal_unit : nal_units) {
-        std::copy(nal_unit.begin(), nal_unit.end(), frame->data.begin() + offset);
-        offset += nal_unit.size();
-    }
-    
-    return frame;
 }
 
 void VideoReceiver::update_stats() {

@@ -1,19 +1,22 @@
 module;
 
-#include "media/frame.hpp"
 #include <chrono>
 #include <algorithm>
 #include <thread>
 #include <random>
-#include "network/endpoint.hpp"
+#include <memory>
 
 module video_streaming.sender;
+import video_streaming.network.endpoint;
+import video_streaming.media.frame;
+import video_streaming.common.types;
+import video_streaming.rtp.packet; // Explicitly required for RtpPacket usage
 
 namespace video_streaming {
 
 VideoSender::VideoSender(const Config& config)
     : m_config(config)
-    , m_logger(std::make_unique<Logger>("video_sender", LogLevel::INFO)),
+    , m_logger(std::make_unique<Logger>("video_sender", LogLevel::INFO))
     , m_rng(std::random_device{}())
 {
     m_logger->info("Initializing VideoSender with config: port={}, fps={}, {}x{}", 
@@ -153,7 +156,7 @@ void VideoSender::sender_loop() {
 }
 
 std::unique_ptr<Frame> VideoSender::generate_frame() {
-    auto frame = std::make_unique<Frame>();
+    auto frame = std::make_unique<video_streaming::Frame>();
     
     // Заполнение метаданных кадра
     frame->width = m_config.width;
@@ -200,24 +203,28 @@ bool VideoSender::send_frame(const Frame& frame) {
     auto encode_end = std::chrono::steady_clock::now();
     auto encode_time = std::chrono::duration_cast<std::chrono::milliseconds>(encode_end - encode_start);
     
+    auto packetize_start = std::chrono::steady_clock::now();
+    
     // Пакетизация в RTP
-    // Assuming encode returns vector<EncodedFrame>, taking first for simplicity or iterating
-    auto rtp_packets = m_packetizer->packetize_frame(encoded_data[0].data, 0); 
-    if (rtp_packets.empty()) {
-        m_logger->error("Failed to packetize encoded frame");
-        return false;
+    std::vector<RtpPacket> all_packets;
+    for (const auto& enc_frame : encoded_data) {
+        auto packets = m_packetizer->packetize_frame(enc_frame.data, static_cast<u32>(enc_frame.timestamp));
+        all_packets.insert(all_packets.end(), packets.begin(), packets.end());
     }
     
-    auto packetize_end = std::chrono::steady_clock::now();
-    auto network_start = packetize_end;
+    if (all_packets.empty()) {
+        return false; // Warning already logged if encoder failed, but empty packetization is odd
+    }
     
+    auto network_start = std::chrono::steady_clock::now();
+
     // Отправка RTP пакетов
     Endpoint destination(m_config.destination_ip, m_config.port);
     size_t packets_sent = 0;
     size_t bytes_sent = 0;
     std::uniform_real_distribution<double> loss_dist(0.0, 100.0);
     
-    for (const auto& packet : rtp_packets) {
+    for (const auto& packet : all_packets) {
         // Network Simulation: Packet Loss
         if (m_config.packet_loss > 0.0 && loss_dist(m_rng) < m_config.packet_loss) {
             continue;
@@ -230,7 +237,8 @@ bool VideoSender::send_frame(const Frame& frame) {
             if (total_delay > 0) std::this_thread::sleep_for(std::chrono::milliseconds(total_delay));
         }
 
-        if (m_socket->send_to(packet.get_buffer(), packet.size(), destination) > 0) {
+        // Assuming packet.payload contains the data to send for now, or packet has implicit conversion
+        if (m_socket->send(packet.payload, destination)) {
             packets_sent++;
             bytes_sent += packet.size();
         } else {

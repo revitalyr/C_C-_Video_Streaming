@@ -9,21 +9,19 @@ module;
 #include <iostream>
 #include <fstream>
 
-#include "common/types.hpp"
-
-// Components headers
-#include "media/frame.hpp"
-#include "media/synthetic_encoder.hpp"
-#include "network/sender.hpp"
-#include "network/receiver.hpp"
-
 export module video_streaming.pipeline;
 
 import video_streaming.logger;
 import video_streaming.interfaces;
+import video_streaming.media.frame;
 import video_streaming.rtp.h264_packetizer;
+import video_streaming.rtp.packet;
 import video_streaming.rtp.h264_depacketizer;
 import video_streaming.jitter;
+import video_streaming.media.synthetic_encoder;
+import video_streaming.common.types;
+import video_streaming.network.receiver;
+import video_streaming.network.sender;
 
 namespace video_streaming {
 

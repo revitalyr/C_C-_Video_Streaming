@@ -5,17 +5,13 @@ module;
 #include <optional>
 #include <map>
 
-#include "rtp/rtp_packet.hpp"
+import video_streaming.rtp.packet;
+import video_streaming.media.frame;
+import video_streaming.common.types;
 
 export module video_streaming.rtp.h264_depacketizer;
 
 namespace video_streaming {
-
-export struct EncodedFrame {
-    std::vector<uint8_t> data;
-    uint32_t timestamp;
-    bool is_keyframe;
-};
 
 export class H264Depacketizer {
 public:
@@ -25,6 +21,14 @@ public:
         uint64_t packets_lost = 0;
         uint64_t packets_reordered = 0;
     };
+    
+    struct FuState {
+        u16 start_sequence;
+        Bytes payload;
+        NalType nal_type;
+        u8 fu_indicator;
+        bool started{false};
+    };
 
     H264Depacketizer() = default;
 
@@ -32,9 +36,27 @@ public:
     std::vector<EncodedFrame> process_packet(const RtpPacket& packet);
 
     Stats get_stats() const { return m_stats; }
+    void reset();
 
 private:
-    std::map<uint32_t, std::vector<uint8_t>> m_fragments; // timestamp -> pending data
+    void update_statistics(const RtpPacket& packet);
+    bool is_packet_in_order(u16 sequence) const;
+    
+    EncodedFrame process_fu_a_packet(const RtpPacket& packet);
+    EncodedFrame process_single_nalu(const RtpPacket& packet);
+    
+    bool is_fu_a_complete(const FuState& state) const;
+    EncodedFrame assemble_fu_a_frame(const FuState& state);
+
+private:
+    std::map<u16, FuState> m_fu_sessions; // sequence -> state
+    u16 m_expected_sequence{0};
+    
+    // Stats members
+    uint64_t m_lost_packets = 0;
+    uint64_t m_reordered_packets = 0;
+    uint64_t m_complete_frames = 0;
+    
     Stats m_stats;
 };
 

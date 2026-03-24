@@ -10,18 +10,18 @@ module;
 #include <random>
 #include <string>
 
-#include "media/frame.hpp"
-#include "media/synthetic_encoder.hpp"
-#include "network/udp_socket.hpp"
-
 export module video_streaming.sender;
 
 import video_streaming.logger;
+import video_streaming.media.frame;
+import video_streaming.interfaces;
 import video_streaming.rtp.h264_packetizer;
+import video_streaming.network.udp_socket;
+import video_streaming.media.synthetic_encoder;
 
 namespace video_streaming {
 
-export class VideoSender {
+export class VideoSender : public video_streaming::IRunnable {
 public:
     struct Config {
         uint16_t port = 5000;
@@ -41,9 +41,9 @@ public:
     ~VideoSender();
 
     // Main management methods
-    bool start();
-    void stop();
-    bool is_running() const noexcept { return m_running.load(); }
+    bool start() override;
+    void stop() override;
+    bool is_running() const override { return m_running.load(); }
 
     // Statistics
     struct Stats {
