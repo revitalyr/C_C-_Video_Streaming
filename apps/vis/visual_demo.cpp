@@ -115,6 +115,8 @@ int main(int argc, char* argv[]) {
     // Set default configurations
     sender_config.destination_ip = "127.0.0.1";  // Send to localhost
     receiver_config.bind_ip = "0.0.0.0";           // Listen on all interfaces
+    sender_config.port = 5000;                     // Default port
+    receiver_config.port = 5000;                     // Same port for receiver
     
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -286,7 +288,7 @@ int main(int argc, char* argv[]) {
         }
         
         // Debug: Print packet reception stats
-        if (packets_received_total % 50 == 0) {
+        if (packets_received_total > 0 && packets_received_total % 50 == 0) {
             double actual_loss = packets_lost_total > 0 ? 
                 (double)packets_lost_total / (packets_received_total + packets_lost_total) * 100.0 : 0.0;
             std::cout << "📊 Stats: Packets=" << packets_received_total 
@@ -376,10 +378,10 @@ int main(int argc, char* argv[]) {
             }
                 
                 // Render network metrics overlay (update dynamically)
-                if (font) {
+                if (font && packets_received_total > 0) { // Only render if we have frames
                     // Calculate actual loss percentage
                     double actual_loss = packets_lost_total > 0 ? 
-                        (double)packets_lost_total / (packets_received_total + packets_lost_total) * 100.0 : 0.0;
+                        (double)packets_lost_total / packets_received_total * 100.0 : 0.0;
                     
                     // Create dynamic text surfaces
                     std::string loss_text = "Loss: " + std::to_string(sender_config.packet_loss) + "% (actual: " + 
