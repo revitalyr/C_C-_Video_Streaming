@@ -304,20 +304,8 @@ int main(int argc, char* argv[]) {
         }
     });
 
-        // Start streaming
-        std::cout << "🔧 Starting receiver on port " << receiver_config.port << std::endl;
-        if (!receiver.start()) {
-            std::cerr << "❌ Failed to start receiver" << std::endl;
-            throw std::runtime_error("Receiver start failed");
-        }
-        
-        std::cout << "🔧 Starting sender to " << sender_config.destination_ip 
-                  << ":" << sender_config.port << std::endl;
-        if (!sender.start()) {
-            std::cerr << "❌ Failed to start sender" << std::endl;
-            throw std::runtime_error("Sender start failed");
-        }
-        
+        // TEMPORARILY DISABLE SENDER/RECEIVER FOR DEBUGGING
+        std::cout << "⚠️  DEBUG: Skipping sender/receiver start to isolate SDL crash" << std::endl;
         std::cout << "✅ Both sender and receiver started!" << std::endl;
         std::cout << "🔄 Entering main SDL loop..." << std::endl;
 
@@ -326,7 +314,6 @@ int main(int argc, char* argv[]) {
         auto last_time = std::chrono::steady_clock::now();
         SDL_Event event;
         while (!g_shutdown.load()) {
-            std::cout << "🔄 SDL Loop iteration..." << std::endl;
             while (SDL_PollEvent(&event)) {
                 if (event.type == SDL_QUIT) g_shutdown.store(true);
                 if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) g_shutdown.store(true);
@@ -379,79 +366,17 @@ int main(int argc, char* argv[]) {
         }
             }
             
-            SDL_RenderClear(renderer); // Always clear
-            
-            // Render received video frame (no gradient background)
-            if (texture) {
-                SDL_RenderCopy(renderer, texture, nullptr, nullptr);
+            // Minimal SDL operations - just clear and present
+            if (!renderer) {
+                std::cerr << "❌ Renderer is null!" << std::endl;
+                break;
             }
-                
-                // Render network metrics overlay (update dynamically)
-                if (font && packets_received_total > 0) { // Only render if we have frames
-                    // Calculate actual loss percentage
-                    double actual_loss = packets_lost_total > 0 ? 
-                        (double)packets_lost_total / packets_received_total * 100.0 : 0.0;
-                    
-                    // Create dynamic text surfaces
-                    std::string loss_text = "Loss: " + std::to_string(sender_config.packet_loss) + "% (actual: " + 
-                                        std::to_string(actual_loss).substr(0, 4) + "%)";
-                    
-                    // Simulate dynamic delay and jitter based on network conditions
-                    int current_delay = sender_config.delay_ms + (rand() % 20 - 10); // ±10ms variation
-                    int current_jitter = sender_config.jitter_ms + (rand() % 10 - 5);  // ±5ms variation
-                    
-                    std::string delay_text = "Delay: " + std::to_string(current_delay) + "ms";
-                    std::string jitter_text = "Jitter: " + std::to_string(current_jitter) + "ms";
-                    std::string packets_text = "Packets: " + std::to_string(packets_received_total) + " sent, " + 
-                                           std::to_string(packets_lost_total) + " lost";
-                    
-                    // Debug: Print metrics every 50 frames
-                    if (packets_received_total % 50 == 0) {
-                        std::cout << "📊 Rendering metrics: " << loss_text << std::endl;
-                    }
-                    
-                    SDL_Color red = {255, 100, 100, 255};
-                    SDL_Color yellow = {255, 255, 100, 255};
-                    SDL_Color white = {255, 255, 255, 255};
-                    SDL_Color green = {100, 255, 100, 255};
-                    
-                    SDL_Surface* loss_surface = TTF_RenderText_Solid(font, loss_text.c_str(), red);
-                    SDL_Surface* delay_surface = TTF_RenderText_Solid(font, delay_text.c_str(), yellow);
-                    SDL_Surface* jitter_surface = TTF_RenderText_Solid(font, jitter_text.c_str(), white);
-                    SDL_Surface* packets_surface = TTF_RenderText_Solid(font, packets_text.c_str(), green);
-                    
-                    if (loss_surface && delay_surface && jitter_surface && packets_surface) {
-                        // Create textures
-                        loss_texture = SDL_CreateTextureFromSurface(renderer, loss_surface);
-                        delay_texture = SDL_CreateTextureFromSurface(renderer, delay_surface);
-                        jitter_texture = SDL_CreateTextureFromSurface(renderer, jitter_surface);
-                        SDL_Texture* packets_texture = SDL_CreateTextureFromSurface(renderer, packets_surface);
-                        
-                        if (loss_texture && delay_texture && jitter_texture && packets_texture) {
-                            // Set rectangles
-                            loss_rect = {10, 10, loss_surface->w, loss_surface->h};
-                            delay_rect = {10, 40, delay_surface->w, delay_surface->h};
-                            jitter_rect = {10, 70, jitter_surface->w, jitter_surface->h};
-                            SDL_Rect packets_rect = {10, 100, packets_surface->w, packets_surface->h};
-                            
-                            // Render all textures
-                            SDL_RenderCopy(renderer, loss_texture, nullptr, &loss_rect);
-                            SDL_RenderCopy(renderer, delay_texture, nullptr, &delay_rect);
-                            SDL_RenderCopy(renderer, jitter_texture, nullptr, &jitter_rect);
-                            SDL_RenderCopy(renderer, packets_texture, nullptr, &packets_rect);
-                            
-                            SDL_DestroyTexture(packets_texture);
-                        }
-                        
-                        // Cleanup surfaces
-                        SDL_FreeSurface(loss_surface);
-                        SDL_FreeSurface(delay_surface);
-                        SDL_FreeSurface(jitter_surface);
-                        SDL_FreeSurface(packets_surface);
-                    }
-                }
-                
+            
+            SDL_RenderClear(renderer);
             SDL_RenderPresent(renderer);
+            
+            // Small delay to prevent 100% CPU usage
+            std::this_thread::sleep_for(std::chrono::milliseconds(16)); // ~60 FPS
             
             auto now = std::chrono::steady_clock::now();
             if (std::chrono::duration_cast<std::chrono::seconds>(now - last_time).count() >= 1) {
