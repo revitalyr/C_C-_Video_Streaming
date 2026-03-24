@@ -13,3 +13,4 @@ vcpkg_installed/
 test_results/
 FFmpeg/
 CLAUDE.md
+video_streaming.log

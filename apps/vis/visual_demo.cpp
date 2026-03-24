@@ -123,6 +123,14 @@ int main(int argc, char* argv[]) {
     int last_frame_width = 0;
     int last_frame_height = 0;
     bool new_frame_available = false;
+    
+    // Text overlay cache (create only when parameters change)
+    SDL_Texture* loss_texture = nullptr;
+    SDL_Texture* delay_texture = nullptr;
+    SDL_Texture* jitter_texture = nullptr;
+    SDL_Rect loss_rect = {10, 10, 0, 0};
+    SDL_Rect delay_rect = {10, 40, 0, 0};
+    SDL_Rect jitter_rect = {10, 70, 0, 0};
 
     try {
         // Initialize Sender and Receiver
@@ -209,6 +217,54 @@ int main(int argc, char* argv[]) {
                 if (texture) {
                     SDL_RenderCopy(renderer, texture, nullptr, nullptr);
                 }
+                
+                // Render network metrics overlay (create once, reuse)
+                if (font && (!loss_texture || !delay_texture || !jitter_texture)) {
+                    // Cleanup old textures
+                    if (loss_texture) SDL_DestroyTexture(loss_texture);
+                    if (delay_texture) SDL_DestroyTexture(delay_texture);
+                    if (jitter_texture) SDL_DestroyTexture(jitter_texture);
+                    
+                    SDL_Color red = {255, 100, 100, 255};
+                    SDL_Color yellow = {255, 255, 100, 255};
+                    SDL_Color white = {255, 255, 255, 255};
+                    
+                    // Create text surfaces
+                    std::string loss_text = "Loss: " + std::to_string(sender_config.packet_loss) + "%";
+                    std::string delay_text = "Delay: " + std::to_string(sender_config.delay_ms) + "ms";
+                    std::string jitter_text = "Jitter: " + std::to_string(sender_config.jitter_ms) + "ms";
+                    
+                    SDL_Surface* loss_surface = TTF_RenderText_Solid(font, loss_text.c_str(), red);
+                    SDL_Surface* delay_surface = TTF_RenderText_Solid(font, delay_text.c_str(), yellow);
+                    SDL_Surface* jitter_surface = TTF_RenderText_Solid(font, jitter_text.c_str(), white);
+                    
+                    if (loss_surface && delay_surface && jitter_surface) {
+                        // Create textures
+                        loss_texture = SDL_CreateTextureFromSurface(renderer, loss_surface);
+                        delay_texture = SDL_CreateTextureFromSurface(renderer, delay_surface);
+                        jitter_texture = SDL_CreateTextureFromSurface(renderer, jitter_surface);
+                        
+                        if (loss_texture && delay_texture && jitter_texture) {
+                            // Set rectangles
+                            loss_rect = {10, 10, loss_surface->w, loss_surface->h};
+                            delay_rect = {10, 40, delay_surface->w, delay_surface->h};
+                            jitter_rect = {10, 70, jitter_surface->w, jitter_surface->h};
+                        }
+                        
+                        // Cleanup surfaces
+                        SDL_FreeSurface(loss_surface);
+                        SDL_FreeSurface(delay_surface);
+                        SDL_FreeSurface(jitter_surface);
+                    }
+                }
+                
+                // Render cached text textures
+                if (loss_texture && delay_texture && jitter_texture) {
+                    SDL_RenderCopy(renderer, loss_texture, nullptr, &loss_rect);
+                    SDL_RenderCopy(renderer, delay_texture, nullptr, &delay_rect);
+                    SDL_RenderCopy(renderer, jitter_texture, nullptr, &jitter_rect);
+                }
+                
             SDL_RenderPresent(renderer);
             
             auto now = std::chrono::steady_clock::now();
@@ -231,8 +287,14 @@ int main(int argc, char* argv[]) {
     }
 
     if (texture) SDL_DestroyTexture(texture);
+    
+    // Cleanup text overlay textures
+    if (loss_texture) SDL_DestroyTexture(loss_texture);
+    if (delay_texture) SDL_DestroyTexture(delay_texture);
+    if (jitter_texture) SDL_DestroyTexture(jitter_texture);
+    
     SDL_DestroyRenderer(renderer);
-     TTF_CloseFont(font);
+    TTF_CloseFont(font);
     SDL_DestroyWindow(window);
     SDL_Quit();
 
