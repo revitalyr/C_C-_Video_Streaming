@@ -164,27 +164,51 @@ std::unique_ptr<Frame> VideoSender::generate_frame() {
     frame->format = PixelFormat::YUV420P;
     frame->timestamp = static_cast<Timestamp>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - m_start_time).count());
     
-    // Генерация синхетического контента (простой паттерн)
+    // Генерация АНИМИРОВАННОГО градиентного контента
     const size_t y_size = frame->width * frame->height;
-    const size_t uv_size = y_size / 2;
-    const size_t total_size = y_size + uv_size;
+    const size_t uv_size = y_size / 4; // Правильно для YUV420P
+    const size_t total_size = y_size + uv_size * 2; // Y + U + V planes
     
     frame->data.resize(total_size);
     
-    // Создание простого паттерна (градиент)
+    // Анимация градиента на основе времени
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_start_time).count();
+    float phase = (elapsed % 4000) / 4000.0f * 2.0f * M_PI;
+    
+    // Создание анимированного градиента
     uint8_t* y_plane = frame->data.data();
-    uint8_t* uv_plane = y_plane + y_size;
+    uint8_t* u_plane = y_plane + y_size;
+    uint8_t* v_plane = u_plane + uv_size;
     
     for (int y = 0; y < frame->height; ++y) {
         for (int x = 0; x < frame->width; ++x) {
-            // Y компонент: градиент от черного к белому
-            y_plane[y * frame->width + x] = static_cast<uint8_t>((x * 255) / frame->width);
+            // Анимированный градиент с цветовыми переходами
+            float gradient_factor = (float)x / frame->width;
+            float time_factor = (sin(phase + y * 0.01f) + 1.0f) * 0.5f;
+            
+            // Y компонент: анимированный градиент
+            uint8_t r = static_cast<uint8_t>((sin(phase) * 0.5f + 0.5f) * 100 + 100);
+            uint8_t g = static_cast<uint8_t>((sin(phase + 2.0f) * 0.5f + 0.5f) * 100 + 100);
+            uint8_t b = static_cast<uint8_t>((sin(phase + 4.0f) * 0.5f + 0.5f) * 100 + 100);
+            
+            // Конвертация RGB в Y для градиента
+            y_plane[y * frame->width + x] = static_cast<uint8_t>(
+                0.299f * r + 0.587f * g + 0.114f * b
+            );
         }
     }
     
-    // UV компоненты: простая цветовая информация
-    for (size_t i = 0; i < uv_size; ++i) {
-        uv_plane[i] = 128; // Нейтральные значения для UV
+    // UV компоненты: цветовая информация для градиента
+    for (int i = 0; i < frame->height; ++i) {
+        for (int j = 0; j < frame->width / 2; ++j) {
+            int idx = i * frame->width / 2 + j;
+            float gradient_factor = (float)j / (frame->width / 2);
+            
+            // Анимированные UV компоненты
+            u_plane[idx] = static_cast<uint8_t>((sin(phase + 2.0f) * 0.5f + 0.5f) * 50 + 128);
+            v_plane[idx] = static_cast<uint8_t>((sin(phase + 4.0f) * 0.5f + 0.5f) * 50 + 128);
+        }
     }
     
     return frame;

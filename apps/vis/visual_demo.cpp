@@ -248,8 +248,8 @@ int main(int argc, char* argv[]) {
     SDL_Rect delay_rect = {10, 40, 0, 0};
     SDL_Rect jitter_rect = {10, 70, 0, 0};
     
-    // Animation state for gradient background
-    auto gradient_start = std::chrono::steady_clock::now();
+    // Animation state for timing (gradient now in sender)
+    auto demo_start = std::chrono::steady_clock::now();
     
     // Network statistics for visualization
     uint32_t packets_received_total = 0;
@@ -370,16 +370,8 @@ int main(int argc, char* argv[]) {
             
             SDL_RenderClear(renderer); // Always clear
             
-            // Render animated gradient background with packet loss visualization
-            int window_width, window_height;
-            SDL_GetWindowSize(window, &window_width, &window_height);
-            render_gradient_background(renderer, window_width, window_height, gradient_start, 
-                                     sender_config.packet_loss, packets_received_total, packets_lost_total);
-            
+            // Render received video frame (no gradient background)
             if (texture) {
-                // Set blend mode for semi-transparent video
-                SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
-                SDL_SetTextureAlphaMod(texture, 200); // Make video semi-transparent
                 SDL_RenderCopy(renderer, texture, nullptr, nullptr);
             }
                 
