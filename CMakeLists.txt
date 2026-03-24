@@ -62,6 +62,10 @@ target_sources(video_streaming_modules
     core/transport/network/receiver.ixx
     core/transport/network/sender.ixx
     core/common/time.ixx
+    # Async coroutine modules
+    core/async/coroutine_frame_generator.ixx
+    core/async/coroutine_network_sender.ixx
+    core/async/coroutine_receiver.ixx
     PRIVATE
     core/common/logger.cpp # Module implementation
     core/session/sender/video_sender.cpp
@@ -90,6 +94,7 @@ target_include_directories(video_streaming_modules PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/core/transport
     ${CMAKE_CURRENT_SOURCE_DIR}/core/video
     ${CMAKE_CURRENT_SOURCE_DIR}/core/session
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/async
 )
 
 # Library for traditional C++ source files
@@ -197,6 +202,17 @@ if(FFMPEG_FOUND AND SDL2_FOUND AND SDL2TTF_FOUND)
     )
     target_link_libraries(visual_demo PRIVATE video_streaming_impl PkgConfig::FFMPEG)
     target_link_libraries(visual_demo PRIVATE ${SDL2_LIBRARIES} ${SDL2TTF_LIBRARIES})
+endif()
+
+# Coroutine visual demo (SDL2) - EXPERIMENTAL
+if(FFMPEG_FOUND AND SDL2_FOUND AND SDL2TTF_FOUND)
+    add_executable(coroutine_visual_demo apps/vis/coroutine_visual_demo.cpp)
+    target_include_directories(coroutine_visual_demo PRIVATE 
+        ${CMAKE_CURRENT_SOURCE_DIR}/core
+        ${SDL2_INCLUDE_DIRS}
+    )
+    target_link_libraries(coroutine_visual_demo PRIVATE video_streaming_impl PkgConfig::FFMPEG)
+    target_link_libraries(coroutine_visual_demo PRIVATE ${SDL2_LIBRARIES} ${SDL2TTF_LIBRARIES})
 endif()
 
 # SDL2 GUI Viewer
