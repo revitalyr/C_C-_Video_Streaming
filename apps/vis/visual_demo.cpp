@@ -45,6 +45,10 @@ int main(int argc, char* argv[]) {
     VideoSender::Config sender_config;
     VideoReceiver::Config receiver_config;
     
+    // Set default configurations
+    sender_config.destination_ip = "127.0.0.1";  // Send to localhost
+    receiver_config.bind_ip = "0.0.0.0";           // Listen on all interfaces
+    
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--port" && i + 1 < argc) {
@@ -129,6 +133,9 @@ int main(int argc, char* argv[]) {
         receiver.set_frame_callback([&](const Frame& frame) {
             std::lock_guard<std::mutex> lock(render_mutex);
             
+            std::cout << "📹 Received frame: " << frame.width << "x" << frame.height 
+                      << " size: " << frame.data.size() << " bytes" << std::endl;
+            
             last_frame_data = frame.data; // Copy data
             last_frame_width = frame.width;
             last_frame_height = frame.height;
@@ -136,14 +143,20 @@ int main(int argc, char* argv[]) {
         });
 
         // Start streaming
+        std::cout << "🔧 Starting receiver on port " << receiver_config.port << std::endl;
         if (!receiver.start()) {
             std::cerr << "❌ Failed to start receiver" << std::endl;
             throw std::runtime_error("Receiver start failed");
         }
+        
+        std::cout << "🔧 Starting sender to " << sender_config.destination_ip 
+                  << ":" << sender_config.port << std::endl;
         if (!sender.start()) {
             std::cerr << "❌ Failed to start sender" << std::endl;
             throw std::runtime_error("Sender start failed");
         }
+        
+        std::cout << "✅ Both sender and receiver started!" << std::endl;
 
         // Main Loop
         uint32_t frame_count = 0;
@@ -158,6 +171,8 @@ int main(int argc, char* argv[]) {
             {
                 std::lock_guard<std::mutex> lock(render_mutex);
                 if (new_frame_available) {
+                    std::cout << "🎬 Rendering frame #" << frame_count << std::endl;
+                    
                     if (!texture || tex_width != last_frame_width || tex_height != last_frame_height) {
                         if (texture) SDL_DestroyTexture(texture);
                         

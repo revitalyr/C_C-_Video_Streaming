@@ -174,25 +174,25 @@ case $MODE in
         
     "visual")
         echo "🎬 Starting Visual SDL2 Demo..."
-        echo "📡 Running: ./build/visual_demo --loss $LOSS --delay $DELAY --jitter $JITTER"
+        echo "📡 Network: loss=$LOSS%, delay=$DELAY ms, jitter=$JITTER ms"
         echo ""
         echo "🔥 Press Ctrl+C to stop demo"
         echo ""
         
-        # Always try to build to ensure latest version
-        (
+        # Try to build and use the modular visual_demo first
+        if (
             cd build
-            cmake --build . --target visual_demo || {
-                echo ""
-                echo "❌ Failed to build 'visual_demo' target." >&2
-                echo "   Please ensure you have SDL2 development libraries installed." >&2
-                echo "   (e.g., 'sudo apt-get install libsdl2-dev' on Debian/Ubuntu)" >&2
-                exit 1
-            }
-        )
-        
-        # Run visual demo
-        ./build/visual_demo --loss $LOSS --delay $DELAY --jitter $JITTER
+            cmake --build . --target visual_demo 2>/dev/null
+        ); then
+            echo "🎯 Using modular visual demo..."
+            ./build/visual_demo --loss $LOSS --delay $DELAY --jitter $JITTER
+        else
+            echo "🔧 Falling back to simple visual demo..."
+            # Build simple demo
+            cd build
+            g++ -o visual_demo_simple ../demo/visual_demo_simple.cpp -I/usr/include/SDL2 -lSDL2 -lSDL2_ttf -pthread
+            ./visual_demo_simple --loss $LOSS --delay $DELAY --jitter $JITTER
+        fi
         ;;
         
     *)
