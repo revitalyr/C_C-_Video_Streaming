@@ -158,19 +158,17 @@ void VideoReceiver::reset_stats() {
 void VideoReceiver::receive_loop() {
     m_logger->info("VideoReceiver thread started");
     
-    std::vector<uint8_t> packet_buffer(m_config.max_frame_size);
     Endpoint sender_endpoint;
     
     while (!m_stop_requested) {
         try {
             // Прием RTP пакета
-            Bytes received_bytes(packet_buffer.begin(), packet_buffer.end());
+            Bytes received_data;
             auto bytes_received = m_socket->receive_from(
-                received_bytes, packet_buffer.size(), sender_endpoint);
+                received_data, m_config.max_frame_size, sender_endpoint);
             
             if (bytes_received > 0) {
-                std::vector<uint8_t> packet(packet_buffer.begin(), packet_buffer.begin() + bytes_received);
-                process_rtp_packet(packet);
+                process_rtp_packet(received_data);
             } else if (bytes_received < 0) {
                 // Ошибка приема
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));

@@ -237,10 +237,11 @@ bool VideoSender::send_frame(const Frame& frame) {
             if (total_delay > 0) std::this_thread::sleep_for(std::chrono::milliseconds(total_delay));
         }
 
-        // Assuming packet.payload contains the data to send for now, or packet has implicit conversion
-        if (m_socket->send(packet.payload, destination)) {
+        // Send full RTP packet (header + payload)
+        auto serialized_packet = packet.serialize();
+        if (m_socket->send(serialized_packet, destination)) {
             packets_sent++;
-            bytes_sent += packet.size();
+            bytes_sent += serialized_packet.size();
         } else {
             m_logger->warn("Failed to send RTP packet");
         }

@@ -115,16 +115,15 @@ bool UdpSocket::send(const Bytes& data, const Endpoint& remote) {
     
     struct sockaddr_in addr;
     socklen_t addr_len = sizeof(addr);
-    
     if (!endpoint_to_sockaddr(remote, reinterpret_cast<struct sockaddr*>(&addr), addr_len)) {
         return false;
     }
     
-    int bytes_sent = sendto(m_socket, 
-                           reinterpret_cast<const char*>(data.data()), 
-                           static_cast<int>(data.size()), 
+    int bytes_sent = sendto(m_socket,
+                           reinterpret_cast<const char*>(data.data()),
+                           static_cast<int>(data.size()),
                            0,
-                           reinterpret_cast<struct sockaddr*>(&addr), 
+                           reinterpret_cast<struct sockaddr*>(&addr),
                            addr_len);
     
     return bytes_sent == static_cast<int>(data.size());
