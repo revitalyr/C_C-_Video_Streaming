@@ -1,6 +1,8 @@
 #include <iostream>
-#include <string>
 #include <thread>
+#include <chrono>
+#include <signal.h>
+#include <cmath>
 #include <atomic>
 #include <mutex>
 #include <iomanip>
@@ -32,12 +34,39 @@ std::string format_bytes(uint64_t bytes) {
         if (bytes < 1024) return std::to_string(bytes) + " B";
         if (bytes < 1024 * 1024) return std::to_string(bytes / 1024) + " KB";
         return std::to_string(bytes / (1024 * 1024)) + " MB";
-    }
-
+}
 
 void signal_handler(int signal) {
-    std::cout << "\n🛑 Received signal " << signal << ", stopping demo...\n";
+    std::cout << "\n🛑 Signal " << signal << " received, stopping demo..." << std::endl;
     g_shutdown.store(true);
+}
+
+// Helper function to render animated gradient background
+void render_gradient_background(SDL_Renderer* renderer, int width, int height, auto start_time) {
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time).count();
+    
+    // Create smooth color transition over 3 seconds
+    float phase = (elapsed % 3000) / 3000.0f * 2.0f * M_PI;
+    
+    // Calculate RGB values with smooth sine wave transitions
+    uint8_t r = static_cast<uint8_t>((sin(phase) * 0.5f + 0.5f) * 30 + 20);  // Dark red to medium red
+    uint8_t g = static_cast<uint8_t>((sin(phase + 2.0f) * 0.5f + 0.5f) * 30 + 20);  // Dark green to medium green  
+    uint8_t b = static_cast<uint8_t>((sin(phase + 4.0f) * 0.5f + 0.5f) * 40 + 30);  // Dark blue to medium blue
+    
+    // Create gradient effect with vertical variation
+    for (int y = 0; y < height; y += 4) {
+        float gradient_factor = (float)y / height;
+        uint8_t gradient_r = static_cast<uint8_t>(r * (1.0f - gradient_factor * 0.3f));
+        uint8_t gradient_g = static_cast<uint8_t>(g * (1.0f - gradient_factor * 0.3f));
+        uint8_t gradient_b = static_cast<uint8_t>(b * (1.0f - gradient_factor * 0.3f));
+        
+        SDL_SetRenderDrawColor(renderer, gradient_r, gradient_g, gradient_b, 255);
+        SDL_RenderDrawLine(renderer, 0, y, width, y);
+        SDL_RenderDrawLine(renderer, 0, y + 1, width, y + 1);
+        SDL_RenderDrawLine(renderer, 0, y + 2, width, y + 2);
+        SDL_RenderDrawLine(renderer, 0, y + 3, width, y + 3);
+    }
 }
 
 int main(int argc, char* argv[]) {
@@ -131,6 +160,9 @@ int main(int argc, char* argv[]) {
     SDL_Rect loss_rect = {10, 10, 0, 0};
     SDL_Rect delay_rect = {10, 40, 0, 0};
     SDL_Rect jitter_rect = {10, 70, 0, 0};
+    
+    // Animation state for gradient background
+    auto gradient_start = std::chrono::steady_clock::now();
 
     try {
         // Initialize Sender and Receiver
@@ -214,9 +246,15 @@ int main(int argc, char* argv[]) {
             }
             
             SDL_RenderClear(renderer); // Always clear
-                if (texture) {
-                    SDL_RenderCopy(renderer, texture, nullptr, nullptr);
-                }
+            
+            // Render animated gradient background
+            int window_width, window_height;
+            SDL_GetWindowSize(window, &window_width, &window_height);
+            render_gradient_background(renderer, window_width, window_height, gradient_start);
+            
+            if (texture) {
+                SDL_RenderCopy(renderer, texture, nullptr, nullptr);
+            }
                 
                 // Render network metrics overlay (create once, reuse)
                 if (font && (!loss_texture || !delay_texture || !jitter_texture)) {
