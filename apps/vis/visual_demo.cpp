@@ -9,6 +9,7 @@
 #include <vector>
 #include <stdexcept>
 #include <signal.h>
+#include <random>
 
 // Define SDL_MAIN_HANDLED to prevent SDL from redefining main()
 #define SDL_MAIN_HANDLED
@@ -41,31 +42,61 @@ void signal_handler(int signal) {
     g_shutdown.store(true);
 }
 
-// Helper function to render animated gradient background
-void render_gradient_background(SDL_Renderer* renderer, int width, int height, auto start_time) {
+// Helper function to render animated gradient background with packet loss visualization
+void render_gradient_background(SDL_Renderer* renderer, int width, int height, auto start_time, 
+                           double packet_loss_rate, uint32_t packets_received, uint32_t packets_lost) {
     auto now = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time).count();
     
-    // Create smooth color transition over 3 seconds
-    float phase = (elapsed % 3000) / 3000.0f * 2.0f * M_PI;
+    // Create smooth color transition over 4 seconds
+    float phase = (elapsed % 4000) / 4000.0f * 2.0f * M_PI;
     
-    // Calculate RGB values with smooth sine wave transitions
-    uint8_t r = static_cast<uint8_t>((sin(phase) * 0.5f + 0.5f) * 30 + 20);  // Dark red to medium red
-    uint8_t g = static_cast<uint8_t>((sin(phase + 2.0f) * 0.5f + 0.5f) * 30 + 20);  // Dark green to medium green  
-    uint8_t b = static_cast<uint8_t>((sin(phase + 4.0f) * 0.5f + 0.5f) * 40 + 30);  // Dark blue to medium blue
+    // Calculate RGB values with smooth sine wave transitions (more subtle)
+    uint8_t r = static_cast<uint8_t>((sin(phase) * 0.3f + 0.5f) * 20 + 15);  // Dark red to medium red
+    uint8_t g = static_cast<uint8_t>((sin(phase + 2.0f) * 0.3f + 0.5f) * 20 + 15);  // Dark green to medium green  
+    uint8_t b = static_cast<uint8_t>((sin(phase + 4.0f) * 0.3f + 0.5f) * 30 + 20);  // Dark blue to medium blue
     
-    // Create gradient effect with vertical variation
-    for (int y = 0; y < height; y += 4) {
+    // Create semi-transparent gradient effect
+    for (int y = 0; y < height; y += 2) {
         float gradient_factor = (float)y / height;
-        uint8_t gradient_r = static_cast<uint8_t>(r * (1.0f - gradient_factor * 0.3f));
-        uint8_t gradient_g = static_cast<uint8_t>(g * (1.0f - gradient_factor * 0.3f));
-        uint8_t gradient_b = static_cast<uint8_t>(b * (1.0f - gradient_factor * 0.3f));
+        uint8_t gradient_r = static_cast<uint8_t>(r * (1.0f - gradient_factor * 0.2f));
+        uint8_t gradient_g = static_cast<uint8_t>(g * (1.0f - gradient_factor * 0.2f));
+        uint8_t gradient_b = static_cast<uint8_t>(b * (1.0f - gradient_factor * 0.2f));
         
-        SDL_SetRenderDrawColor(renderer, gradient_r, gradient_g, gradient_b, 255);
+        // Make background semi-transparent (alpha = 100)
+        SDL_SetRenderDrawColor(renderer, gradient_r, gradient_g, gradient_b, 100);
         SDL_RenderDrawLine(renderer, 0, y, width, y);
         SDL_RenderDrawLine(renderer, 0, y + 1, width, y + 1);
-        SDL_RenderDrawLine(renderer, 0, y + 2, width, y + 2);
-        SDL_RenderDrawLine(renderer, 0, y + 3, width, y + 3);
+    }
+    
+    // Visualize packet loss as red X marks
+    if (packet_loss_rate > 0 && packets_received > 0) {
+        double actual_loss = (double)packets_lost / (packets_received + packets_lost) * 100.0;
+        int loss_marks = static_cast<int>(actual_loss / 10.0); // One X per 10% loss
+        
+        for (int i = 0; i < loss_marks && i < 10; i++) {
+            int x = width - 30 - (i * 25);
+            int y = 30 + (i % 2) * 20;
+            
+            // Draw red X for packet loss
+            SDL_SetRenderDrawColor(renderer, 255, 50, 50, 200);
+            SDL_RenderDrawLine(renderer, x - 8, y - 8, x + 8, y + 8);
+            SDL_RenderDrawLine(renderer, x - 8, y + 8, x + 8, y - 8);
+        }
+    }
+    
+    // Draw network status indicator
+    int status_y = height - 40;
+    if (packet_loss_rate == 0) {
+        // Green circle for good connection (using lines)
+        SDL_SetRenderDrawColor(renderer, 50, 255, 50, 200);
+        SDL_RenderDrawLine(renderer, 25, status_y - 5, 35, status_y + 5);
+        SDL_RenderDrawLine(renderer, 25, status_y + 5, 35, status_y - 5);
+    } else {
+        // Red X for packet loss (using lines)
+        SDL_SetRenderDrawColor(renderer, 255, 50, 50, 200);
+        SDL_RenderDrawLine(renderer, 25, status_y - 5, 35, status_y + 5);
+        SDL_RenderDrawLine(renderer, 25, status_y + 5, 35, status_y - 5);
     }
 }
 
@@ -163,13 +194,18 @@ int main(int argc, char* argv[]) {
     
     // Animation state for gradient background
     auto gradient_start = std::chrono::steady_clock::now();
+    
+    // Network statistics for visualization
+    uint32_t packets_received_total = 0;
+    uint32_t packets_lost_total = 0;
+    auto stats_update_time = std::chrono::steady_clock::now();
 
     try {
         // Initialize Sender and Receiver
         VideoSender sender(sender_config);
         VideoReceiver receiver(receiver_config);
 
-        // Set receiver callback to store frame data
+        // Set receiver callback to store frame data and collect stats
         receiver.set_frame_callback([&](const Frame& frame) {
         std::lock_guard<std::mutex> lock(render_mutex);
         std::cout << "📹 Received frame: " << frame.width << "x" << frame.height 
@@ -178,6 +214,20 @@ int main(int argc, char* argv[]) {
         last_frame_width = frame.width;
         last_frame_height = frame.height;
         new_frame_available = true;
+        
+        // Update statistics for visualization
+        packets_received_total++;
+        
+        // Simulate packet loss based on configuration
+        if (sender_config.packet_loss > 0) {
+            static std::random_device rd;
+            static std::mt19937 gen(rd());
+            std::uniform_real_distribution<> loss_dist(0.0, 100.0);
+            
+            if (loss_dist(gen) < sender_config.packet_loss) {
+                packets_lost_total++;
+            }
+        }
     });
 
         // Start streaming
@@ -247,10 +297,11 @@ int main(int argc, char* argv[]) {
             
             SDL_RenderClear(renderer); // Always clear
             
-            // Render animated gradient background
+            // Render animated gradient background with packet loss visualization
             int window_width, window_height;
             SDL_GetWindowSize(window, &window_width, &window_height);
-            render_gradient_background(renderer, window_width, window_height, gradient_start);
+            render_gradient_background(renderer, window_width, window_height, gradient_start, 
+                                     sender_config.packet_loss, packets_received_total, packets_lost_total);
             
             if (texture) {
                 SDL_RenderCopy(renderer, texture, nullptr, nullptr);
