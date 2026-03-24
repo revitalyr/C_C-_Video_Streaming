@@ -173,19 +173,23 @@ case $MODE in
         ;;
         
     "visual")
-        echo "🎬 Starting Visual ASCII Demo..."
+        echo "🎬 Starting Visual SDL2 Demo..."
         echo "📡 Running: ./build/visual_demo --loss $LOSS --delay $DELAY --jitter $JITTER"
         echo ""
         echo "🔥 Press Ctrl+C to stop demo"
         echo ""
         
-        # Check if visual_demo exists
-        if [ ! -f "build/visual_demo" ]; then
-            echo "❌ Visual demo not found. Building..."
+        # Always try to build to ensure latest version
+        (
             cd build
-            cmake --build . --target visual_demo
-            cd ..
-        fi
+            cmake --build . --target visual_demo || {
+                echo ""
+                echo "❌ Failed to build 'visual_demo' target." >&2
+                echo "   Please ensure you have SDL2 development libraries installed." >&2
+                echo "   (e.g., 'sudo apt-get install libsdl2-dev' on Debian/Ubuntu)" >&2
+                exit 1
+            }
+        )
         
         # Run visual demo
         ./build/visual_demo --loss $LOSS --delay $DELAY --jitter $JITTER

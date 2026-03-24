@@ -24,13 +24,15 @@ if(NOT FFMPEG_FOUND)
     pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET libavcodec libavdevice libavfilter libavformat libavutil libswresample libswscale)
 endif()
 
-# Find SDL2 for GUI viewer
-find_package(SDL2 CONFIG QUIET)
-if(NOT SDL2_FOUND)
-    find_package(PkgConfig QUIET)
-    if(PkgConfig_FOUND)
-        pkg_check_modules(SDL2 QUIET IMPORTED_TARGET sdl2)
-    endif()
+# Find SDL2 and SDL_ttf
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(SDL2 REQUIRED sdl2)
+pkg_check_modules(SDL2TTF REQUIRED SDL2_ttf)
+
+if(SDL2_FOUND)
+    message(STATUS "Found SDL2: ${SDL2_LIBRARIES}")
+else()
+    message(WARNING "SDL2 not found. The 'visual_demo' and 'sdl_viewer' targets will not be available.")
 endif()
 
 # Tests (aligned with Makefile and docker-compose)
@@ -170,19 +172,15 @@ else()
     target_link_libraries(ffplay_viewer PRIVATE Threads::Threads)
 endif()
 
-# Visual demo (ASCII animation)
-add_executable(visual_demo apps/vis/visual_demo.cpp)
-# Add core include path for demos that might need it
-target_include_directories(visual_demo PRIVATE 
-    ${CMAKE_CURRENT_SOURCE_DIR}/core
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/transport
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/video
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/session
-)
-if(WIN32)
-    target_link_libraries(visual_demo PRIVATE Threads::Threads ws2_32)
-else()
-    target_link_libraries(visual_demo PRIVATE Threads::Threads)
+# Visual demo (SDL2)
+if(FFMPEG_FOUND AND SDL2_FOUND AND SDL2TTF_FOUND)
+    add_executable(visual_demo apps/vis/visual_demo.cpp)
+    target_include_directories(visual_demo PRIVATE 
+        ${CMAKE_CURRENT_SOURCE_DIR}/core
+        ${SDL2_INCLUDE_DIRS}
+    )
+    target_link_libraries(visual_demo PRIVATE video_streaming_impl PkgConfig::FFMPEG)
+    target_link_libraries(visual_demo PRIVATE ${SDL2_LIBRARIES} ${SDL2TTF_LIBRARIES})
 endif()
 
 # SDL2 GUI Viewer

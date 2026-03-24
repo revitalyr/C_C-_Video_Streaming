@@ -1,0 +1,14 @@
+[+0.000s] [48a81] [logger.ixx:113] Initializing VideoSender with config: port=5000, fps=30, 1920x1080
+[+0.116s] [48a81] [logger.ixx:113] VideoSender initialized successfully
+[+0.116s] [48a81] [logger.ixx:113] Initializing VideoReceiver with config: port=5000, jitter_buffer_size=50
+[+0.125s] [48a81] [logger.ixx:113] VideoReceiver initialized successfully
+[+0.126s] [48a81] [logger.ixx:113] VideoReceiver started successfully on 0.0.0.0:5000
+[+0.126s] [48ab5] [logger.ixx:113] VideoReceiver thread started
+[+0.126s] [48a81] [logger.ixx:113] VideoSender started successfully
+[+0.126s] [48ab6] [logger.ixx:113] VideoSender thread started
+[+3.986s] [48a81] [logger.ixx:113] Stopping VideoSender...
+[+4.580s] [48ab6] [logger.ixx:113] VideoSender thread stopped
+[+4.582s] [48a81] [logger.ixx:113] VideoSender stopped. Final stats: frames=11, packets=99, bytes=41346, fps=2.47
+[+4.583s] [48a81] [logger.ixx:113] Stopping VideoReceiver...
+[+4.583s] [48ab5] [logger.ixx:113] VideoReceiver thread stopped
+[+4.583s] [48a81] [logger.ixx:113] VideoReceiver stopped. Final stats: frames=0, packets=0, loss=0.00%, fps=0.00

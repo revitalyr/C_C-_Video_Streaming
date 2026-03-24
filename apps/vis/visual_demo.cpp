@@ -1,262 +1,40 @@
 #include <iostream>
-#include <thread>
-#include <chrono>
-#include <memory>
-#include <atomic>
 #include <string>
-#include <vector>
-#include <map>
+#include <thread>
+#include <atomic>
 #include <mutex>
-#include <sstream>
 #include <iomanip>
-#include <algorithm>
+#include <vector>
+#include <stdexcept>
+#include <signal.h>
 
-#ifdef _WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#include <windows.h>
-#include <signal.h>
-#pragma comment(lib, "ws2_32.lib")
-#else
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <cstring>
-#include <signal.h>
-#endif
+// Define SDL_MAIN_HANDLED to prevent SDL from redefining main()
+#define SDL_MAIN_HANDLED
+#include <SDL.h>
+
+import video_streaming.sender;
+
+
+#include <SDL_ttf.h>
+
+import video_streaming.receiver;
+import video_streaming.media.frame;
 
 using namespace std::chrono_literals;
+using namespace video_streaming;
 
-// Simple visual demo with real-time metrics
-class VisualDemo {
-private:
-    std::atomic<bool> m_running{false};
-    std::thread m_demo_thread;
-    std::atomic<uint64_t> m_frames_sent{0};
-    std::atomic<uint64_t> m_bytes_sent{0};
-    std::atomic<uint64_t> m_packets_lost{0};
-    std::atomic<double> m_latency_ms{0.0};
-    
-    // Network simulation parameters
-    double m_packet_loss_rate = 0.0;  // 0-100%
-    int m_network_delay_ms = 0;       // 0-1000ms
-    int m_jitter_ms = 0;              // 0-200ms
-    
-public:
-    VisualDemo(double packet_loss = 0.0, int delay = 0, int jitter = 0)
-        : m_packet_loss_rate(packet_loss), m_network_delay_ms(delay), m_jitter_ms(jitter) {}
-    
-    void start() {
-        m_running.store(true);
-        m_demo_thread = std::thread(&VisualDemo::demo_loop, this);
-    }
-    
-    void stop() {
-        m_running.store(false);
-        if (m_demo_thread.joinable()) {
-            m_demo_thread.join();
-        }
-    }
-    
-private:
-    void demo_loop() {
-        auto start_time = std::chrono::steady_clock::now();
-        auto last_metrics_time = start_time;
-        
-        std::cout << "\n";
-        std::cout << "🎬 === VISUAL VIDEO STREAMING DEMO ===\n";
-        std::cout << "📡 Network: loss=" << m_packet_loss_rate 
-                  << "%, delay=" << m_network_delay_ms 
-                  << "ms, jitter=" << m_jitter_ms << "ms\n";
-        std::cout << "🎥 Status: Starting...\n\n";
-        
-        while (m_running.load()) {
-            auto now = std::chrono::steady_clock::now();
-            
-            // Simulate frame generation and sending
-            simulate_frame_sending();
-            
-            // Update metrics every second
-            if (now - last_metrics_time >= 1s) {
-                update_metrics();
-                print_visual_status();
-                last_metrics_time = now;
-            }
-            
-            std::this_thread::sleep_for(40ms); // ~25 FPS
-        }
-    }
-    
-    void simulate_frame_sending() {
-        // Simulate H.264 frame (SPS/PPS/IDR)
-        std::vector<uint8_t> frame = generate_demo_frame();
-        
-        // Apply network conditions
-        if (should_drop_packet()) {
-            m_packets_lost.fetch_add(1);
-            return;
-        }
-        
-        // Apply network delay and jitter
-        int actual_delay = m_network_delay_ms + (rand() % (2 * m_jitter_ms + 1)) - m_jitter_ms;
-        if (actual_delay > 0) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(actual_delay));
-        }
-        
-        // Update statistics
-        m_frames_sent.fetch_add(1);
-        m_bytes_sent.fetch_add(frame.size());
-        
-        // Simulate latency measurement
-        double latency = 10.0 + (rand() % 50) + (m_jitter_ms * 0.5);
-        m_latency_ms.store(latency);
-    }
-    
-    std::vector<uint8_t> generate_demo_frame() {
-        static uint32_t frame_id = 0;
-        frame_id++;
-        
-        std::vector<uint8_t> frame;
-        
-        // SPS (Sequence Parameter Set)
-        frame.push_back(0x00); frame.push_back(0x00); frame.push_back(0x00); frame.push_back(0x01);
-        frame.push_back(0x67); frame.push_back(0x42); frame.push_back(0x00); frame.push_back(0x1E);
-        frame.push_back(0x8D); frame.push_back(0x40); frame.push_back(0x50); frame.push_back(0x17);
-        frame.push_back(0xFC); frame.push_back(0xB0); frame.push_back(0x0F); frame.push_back(0x08);
-        frame.push_back(0x84);
-        
-        // PPS (Picture Parameter Set)
-        frame.push_back(0x00); frame.push_back(0x00); frame.push_back(0x00); frame.push_back(0x01);
-        frame.push_back(0x68); frame.push_back(0xCE); frame.push_back(0x3C); frame.push_back(0x80);
-        
-        // IDR Frame (simulated video content)
-        frame.push_back(0x00); frame.push_back(0x00); frame.push_back(0x00); frame.push_back(0x01);
-        frame.push_back(0x65); frame.push_back(0x88); frame.push_back(0x80); frame.push_back(0x00);
-        frame.push_back(0x05); frame.push_back(0xFF); frame.push_back(0xEE); frame.push_back(0x3D);
-        
-        // Add some "video data" that changes each frame
-        for (int i = 0; i < 100; ++i) {
-            frame.push_back(static_cast<uint8_t>((frame_id * 7 + i * 13) % 256));
-        }
-        
-        return frame;
-    }
-    
-    bool should_drop_packet() {
-        if (m_packet_loss_rate <= 0.0) return false;
-        return (rand() % 1000) < (m_packet_loss_rate * 10.0);
-    }
-    
-    void update_metrics() {
-        // Calculate packet loss percentage
-        uint64_t total = m_frames_sent.load() + m_packets_lost.load();
-        double loss_percent = total > 0 ? (m_packets_lost.load() * 100.0 / total) : 0.0;
-        
-        // Update latency with some variation
-        double base_latency = 10.0 + m_network_delay_ms * 0.1;
-        double jitter_effect = (rand() % (m_jitter_ms + 1)) * 0.5;
-        m_latency_ms.store(base_latency + jitter_effect);
-    }
-    
-    void print_visual_status() {
-        // Clear screen (Windows compatible)
-        system("cls");
-        
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - m_start_time).count();
-        
-        uint64_t frames = m_frames_sent.load();
-        uint64_t bytes = m_bytes_sent.load();
-        uint64_t lost = m_packets_lost.load();
-        double latency = m_latency_ms.load();
-        
-        double fps = elapsed > 0 ? static_cast<double>(frames) / elapsed : 0.0;
-        double mbps = elapsed > 0 ? (bytes * 8.0 / 1024 / 1024) / elapsed : 0.0;
-        double loss_percent = (frames + lost) > 0 ? (lost * 100.0 / (frames + lost)) : 0.0;
-        
-        std::cout << "\n";
-        std::cout << "🎬 === VISUAL VIDEO STREAMING DEMO ===\n";
-        std::cout << "⏱️  Runtime: " << elapsed << "s\n";
-        std::cout << "📡 Network: loss=" << m_packet_loss_rate 
-                  << "%, delay=" << m_network_delay_ms 
-                  << "ms, jitter=" << m_jitter_ms << "ms\n\n";
-        
-        // Video Stream Status
-        std::cout << "🎥 VIDEO STREAM STATUS\n";
-        std::cout << "┌─────────────────────────────────────────┐\n";
-        std::cout << "│ 📹 Frames Sent: " << std::setw(25) << std::left << frames << "│\n";
-        std::cout << "│ 🎬 FPS:        " << std::setw(25) << std::fixed << std::setprecision(1) << fps << "│\n";
-        std::cout << "│ 📊 Bitrate:    " << std::setw(25) << std::fixed << std::setprecision(2) << mbps << " Mbps│\n";
-        std::cout << "│ 💾 Data Sent:   " << std::setw(25) << format_bytes(bytes) << "│\n";
-        std::cout << "└─────────────────────────────────────────┘\n\n";
-        
-        // Network Performance
-        std::cout << "🌐 NETWORK PERFORMANCE\n";
-        std::cout << "┌─────────────────────────────────────────┐\n";
-        std::cout << "│ 📉 Packet Loss: " << std::setw(22) << std::fixed << std::setprecision(1) << loss_percent << "% │\n";
-        std::cout << "│ 📦 Lost:        " << std::setw(25) << lost << "│\n";
-        std::cout << "│ ⏱️  Latency:     " << std::setw(25) << std::fixed << std::setprecision(1) << latency << " ms │\n";
-        std::cout << "└─────────────────────────────────────────┘\n\n";
-        
-        // Visual Video Representation
-        std::cout << "🎬 VIDEO PREVIEW (640x480)\n";
-        std::cout << "┌─────────────────────────────────────────┐\n";
-        for (int row = 0; row < 8; ++row) {
-            std::cout << "│";
-            for (int col = 0; col < 40; ++col) {
-                // Create animated pattern based on frame number
-                uint8_t pixel = static_cast<uint8_t>((frames * 3 + row * 17 + col * 7) % 256);
-                char visual = get_visual_char(pixel);
-                std::cout << visual;
-            }
-            std::cout << "│\n";
-        }
-        std::cout << "└─────────────────────────────────────────┘\n\n";
-        
-        // Pipeline Status
-        std::cout << "🔄 PIPELINE STATUS\n";
-        std::cout << "┌─────────────────────────────────────────┐\n";
-        std::cout << "│ 📹 Capture:     " << std::setw(23) << "✅ Active" << "│\n";
-        std::cout << "│ 🎬 Encode:      " << std::setw(23) << "✅ H.264" << "│\n";
-        std::cout << "│ 📦 RTP:         " << std::setw(23) << "✅ FU-A" << "│\n";
-        std::cout << "│ 🌐 Network:     " << std::setw(23) << get_network_status() << "│\n";
-        std::cout << "│ 📊 Jitter Buf:  " << std::setw(23) << "✅ Active" << "│\n";
-        std::cout << "│ 🎮 Decode:      " << std::setw(23) << "✅ H.264" << "│\n";
-        std::cout << "│ 🖥️  Render:     " << std::setw(23) << "✅ SDL" << "│\n";
-        std::cout << "└─────────────────────────────────────────┘\n\n";
-        
-        std::cout << "Press Ctrl+C to stop demo...\n";
-    }
-    
-    char get_visual_char(uint8_t value) {
-        // Map pixel values to visual characters
-        const char* chars = " .:-=+*#%@";
-        int index = (value * 9) / 256;
-        return chars[index];
-    }
-    
-    std::string format_bytes(uint64_t bytes) {
+// Signal handler for graceful shutdown
+std::atomic<bool> g_shutdown{false};
+const int SCREEN_WIDTH = 640;
+const int SCREEN_HEIGHT = 480;
+
+std::string format_bytes(uint64_t bytes) {
         if (bytes < 1024) return std::to_string(bytes) + " B";
         if (bytes < 1024 * 1024) return std::to_string(bytes / 1024) + " KB";
         return std::to_string(bytes / (1024 * 1024)) + " MB";
     }
-    
-    std::string get_network_status() {
-        double loss = (m_frames_sent.load() + m_packets_lost.load()) > 0 ? 
-                     (m_packets_lost.load() * 100.0 / (m_frames_sent.load() + m_packets_lost.load())) : 0.0;
-        
-        if (loss < 1.0) return "✅ Good";
-        if (loss < 5.0) return "⚠️  Fair";
-        return "❌ Poor";
-    }
-    
-    std::chrono::steady_clock::time_point m_start_time = std::chrono::steady_clock::now();
-};
 
-// Signal handler for graceful shutdown
-std::atomic<bool> g_shutdown{false};
+
 void signal_handler(int signal) {
     std::cout << "\n🛑 Received signal " << signal << ", stopping demo...\n";
     g_shutdown.store(true);
@@ -264,29 +42,30 @@ void signal_handler(int signal) {
 
 int main(int argc, char* argv[]) {
     // Parse command line arguments
-    double packet_loss = 0.0;
-    int delay = 0;
-    int jitter = 0;
+    VideoSender::Config sender_config;
+    VideoReceiver::Config receiver_config;
     
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
-        if (arg == "--loss" && i + 1 < argc) {
-            packet_loss = std::stod(argv[++i]);
+        if (arg == "--port" && i + 1 < argc) {
+            sender_config.port = std::stoi(argv[++i]);
+            receiver_config.port = sender_config.port;
+        } else if (arg == "--loss" && i + 1 < argc) {
+            sender_config.packet_loss = std::stod(argv[++i]);
         } else if (arg == "--delay" && i + 1 < argc) {
-            delay = std::stoi(argv[++i]);
+            sender_config.delay_ms = std::stoi(argv[++i]);
         } else if (arg == "--jitter" && i + 1 < argc) {
-            jitter = std::stoi(argv[++i]);
+            sender_config.jitter_ms = std::stoi(argv[++i]);
         } else if (arg == "--help") {
-            std::cout << "Visual Video Streaming Demo\n";
+            std::cout << "Visual Video Streaming Demo (SDL2)\n";
             std::cout << "Usage: " << argv[0] << " [options]\n";
             std::cout << "Options:\n";
-            std::cout << "  --loss <percent>    Packet loss rate (0-100)\n";
-            std::cout << "  --delay <ms>        Network delay (0-1000)\n";
-            std::cout << "  --jitter <ms>       Network jitter (0-200)\n";
+            std::cout << "  --port <port>      UDP port (default: 5000)\n";
+            std::cout << "  --loss <percent>   Packet loss rate 0-100 (default: 0)\n";
+            std::cout << "  --delay <ms>       Network delay 0-1000ms (default: 0)\n";
+            std::cout << "  --jitter <ms>      Network jitter 0-200ms (default: 0)\n";
             std::cout << "Examples:\n";
-            std::cout << "  " << argv[0] << "                           # Perfect network\n";
-            std::cout << "  " << argv[0] << " --loss 5                  # 5% packet loss\n";
-            std::cout << "  " << argv[0] << " --loss 10 --delay 100    # Poor network\n";
+            std::cout << "  " << argv[0] << " --loss 5 --delay 50\n";
             return 0;
         }
     }
@@ -295,21 +74,155 @@ int main(int argc, char* argv[]) {
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
     
-    std::cout << "🎬 Starting Visual Video Streaming Demo...\n";
-    std::cout << "📡 Network conditions: loss=" << packet_loss 
-              << "%, delay=" << delay << "ms, jitter=" << jitter << "ms\n";
-    
-    // Create and start demo
-    VisualDemo demo(packet_loss, delay, jitter);
-    demo.start();
-    
-    // Wait for shutdown
-    while (!g_shutdown.load()) {
-        std::this_thread::sleep_for(100ms);
+    // Initialize SDL
+    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+        std::cerr << "❌ SDL Init failed: " << SDL_GetError() << std::endl;
+        return -1;
+    } 
+
+    if (TTF_Init() != 0) {
+        std::cerr << "❌ SDL_ttf Init failed: " << TTF_GetError() << std::endl;
+        return -1;
     }
     
-    demo.stop();
-    std::cout << "🎬 Demo stopped. Thanks for watching!\n";
+    // Create Window & Renderer
+    SDL_Window* window = SDL_CreateWindow(
+        "Visual Demo (Sender + Receiver)",
+        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        sender_config.width, sender_config.height,
+        SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN
+    );
+    
+    if (!window) {
+        std::cerr << "❌ SDL Window failed: " << SDL_GetError() << std::endl;
+         TTF_Quit();
+        SDL_Quit();
+        return -1;
+    }
+
+      TTF_Font* font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16);
+    if (!font) {
+        std::cerr << "❌ Failed to load font! SDL_ttf Error: " << TTF_GetError() << std::endl;
+        TTF_Quit();
+        SDL_Quit();
+        return -1;
+    }
+    
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    SDL_Texture* texture = nullptr;
+    int tex_width = 0;
+    int tex_height = 0;
+    
+    // Frame buffer for passing data from receiver thread to main thread
+    std::mutex render_mutex;
+    std::vector<uint8_t> last_frame_data;
+    int last_frame_width = 0;
+    int last_frame_height = 0;
+    bool new_frame_available = false;
+
+    try {
+        // Initialize Sender and Receiver
+        VideoSender sender(sender_config);
+        VideoReceiver receiver(receiver_config);
+
+        // Set receiver callback to store frame data
+        receiver.set_frame_callback([&](const Frame& frame) {
+            std::lock_guard<std::mutex> lock(render_mutex);
+            
+            last_frame_data = frame.data; // Copy data
+            last_frame_width = frame.width;
+            last_frame_height = frame.height;
+            new_frame_available = true;
+        });
+
+        // Start streaming
+        if (!receiver.start()) {
+            std::cerr << "❌ Failed to start receiver" << std::endl;
+            throw std::runtime_error("Receiver start failed");
+        }
+        if (!sender.start()) {
+            std::cerr << "❌ Failed to start sender" << std::endl;
+            throw std::runtime_error("Sender start failed");
+        }
+
+        // Main Loop
+        uint32_t frame_count = 0;
+        auto last_time = std::chrono::steady_clock::now();
+        SDL_Event event;
+        while (!g_shutdown.load()) {
+            while (SDL_PollEvent(&event)) {
+                if (event.type == SDL_QUIT) g_shutdown.store(true);
+                if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) g_shutdown.store(true);
+            }
+
+            {
+                std::lock_guard<std::mutex> lock(render_mutex);
+                if (new_frame_available) {
+                    if (!texture || tex_width != last_frame_width || tex_height != last_frame_height) {
+                        if (texture) SDL_DestroyTexture(texture);
+                        
+                        tex_width = last_frame_width;
+                        tex_height = last_frame_height;
+                        
+                        texture = SDL_CreateTexture(
+                            renderer, SDL_PIXELFORMAT_YV12, 
+                            SDL_TEXTUREACCESS_STREAMING, tex_width, tex_height
+                        );
+                        
+                        SDL_SetWindowSize(window, tex_width, tex_height);
+                    }
+                    
+                    if (texture && !last_frame_data.empty()) {
+                        size_t y_size = tex_width * tex_height;
+                        const uint8_t* y_plane = last_frame_data.data();
+                        const uint8_t* u_plane = y_plane + y_size;
+                        const uint8_t* v_plane = u_plane + y_size + (y_size / 4);
+                        
+                SDL_UpdateYUVTexture(
+                    texture, nullptr,
+                    y_plane, tex_width,
+                    u_plane, tex_width / 2,
+                    v_plane, tex_width / 2
+                );
+                        
+                        new_frame_available = false;
+                        frame_count++;
+            }
+        }
+            }
+            
+            SDL_RenderClear(renderer); // Always clear
+                if (texture) {
+                    SDL_RenderCopy(renderer, texture, nullptr, nullptr);
+                }
+            SDL_RenderPresent(renderer);
+            
+            auto now = std::chrono::steady_clock::now();
+            if (std::chrono::duration_cast<std::chrono::seconds>(now - last_time).count() >= 1) {
+                std::string title = "Visual Demo (Sender + Receiver) - " + std::to_string(frame_count) + " FPS";
+                SDL_SetWindowTitle(window, title.c_str());
+                frame_count = 0;
+                last_time = now;
+            }
+            
+            SDL_Delay(10);
+        }
+
+        // Cleanup
+        sender.stop();
+        receiver.stop();
+
+    } catch (const std::exception& e) {
+        std::cerr << "❌ Exception: " << e.what() << std::endl;
+    }
+
+    if (texture) SDL_DestroyTexture(texture);
+    SDL_DestroyRenderer(renderer);
+     TTF_CloseFont(font);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+
+    std::cout << "🎬 Demo finished." << std::endl;
     
     return 0;
 }
