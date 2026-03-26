@@ -1,14 +1,18 @@
 module;
 
+#include <memory>
 #include <optional>
+
 module video_streaming.network.receiver;
 import video_streaming.common.types;
 import video_streaming.network.endpoint;
+import video_streaming.network.udp_socket;
+import video_streaming.rtp.packet;
 
 namespace video_streaming {
 
 Receiver::Receiver(Port port) 
-    : m_port(port) {
+    : m_port(port), m_socket(std::make_unique<UdpSocket>()) {
 }
 
 Receiver::~Receiver() {

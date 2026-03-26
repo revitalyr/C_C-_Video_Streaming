@@ -175,25 +175,31 @@ case $MODE in
         ;;
         
     "visual")
-        echo "🎬 Starting Visual SDL2 Demo..."
-        echo "📡 Network: loss=$LOSS%, delay=$DELAY ms, jitter=$JITTER ms"
+        echo "VIDEO STREAM PLAYER - NETWORK SIMULATION"
+        echo "Network: loss=$LOSS%, delay=$DELAY ms, jitter=$JITTER ms"
         echo ""
-        echo "🔥 Press Ctrl+C to stop demo"
+        echo "Press Ctrl+C to stop demo"
         echo ""
         
-        # Try to build and use the modular visual_demo first
+        # Build and run video stream player
         if (
             cd build
             cmake --build . --target visual_demo 2>/dev/null
         ); then
-            echo "🎯 Using modular visual demo..."
+            echo "EXEC: Video Stream Player with Network Simulation"
             ./build/visual_demo --loss $LOSS --delay $DELAY --jitter $JITTER
         else
-            echo "🔧 Falling back to simple visual demo..."
-            # Build simple demo
+            echo "ERROR: Failed to build video stream player"
+            echo "BUILD: Attempting compilation..."
             cd build
-            g++ -o visual_demo_simple ../demo/visual_demo_simple.cpp -I/usr/include/SDL2 -lSDL2 -lSDL2_ttf -pthread
-            ./visual_demo_simple --loss $LOSS --delay $DELAY --jitter $JITTER
+            cmake ..
+            cmake --build . --target visual_demo
+            if [ -f "./visual_demo" ]; then
+                ./visual_demo --loss $LOSS --delay $DELAY --jitter $JITTER
+            else
+                echo "FATAL: Could not build visual_demo"
+                exit 1
+            fi
         fi
         ;;
         

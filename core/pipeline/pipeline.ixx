@@ -62,15 +62,18 @@ public:
     bool start() {
         if (m_running) return false;
         
-        auto& logger = LoggerManager::instance();
-        logger.get_logger("pipeline")->info("Starting pipeline...");
+        auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+        auto logger_name = "pipeline_" + std::to_string(timestamp);
+        auto logger = LoggerManager::instance().create_logger(logger_name);
+        logger->info("Starting pipeline...");
 
         if (m_config.enable_sender && !m_sender.start()) {
-            logger.get_logger("pipeline")->error("Failed to start sender");
+            logger->error("Failed to start sender");
             return false;
         }
         if (m_config.enable_receiver && !m_receiver.start()) {
-            logger.get_logger("pipeline")->error("Failed to start receiver");
+            logger->error("Failed to start receiver");
             return false;
         }
 
@@ -94,7 +97,11 @@ public:
         
         m_sender.stop();
         m_receiver.stop();
-        LoggerManager::instance().get_logger("pipeline")->info("Pipeline stopped");
+        auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+        auto logger_name = "pipeline_" + std::to_string(timestamp);
+        auto logger = LoggerManager::instance().create_logger(logger_name);
+        logger->info("Pipeline stopped");
     }
 
     PipelineMetrics get_metrics() const {

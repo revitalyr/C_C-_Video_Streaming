@@ -12,6 +12,7 @@ export module video_streaming.async.coroutine_frame_generator;
 
 import video_streaming.media.frame;
 import video_streaming.common.types;
+import video_streaming.async.coroutine_types;
 
 export namespace video_streaming::async {
 
@@ -36,17 +37,13 @@ public:
         
         void return_void() {}
         void unhandled_exception() {
-            std::rethrow_exception(std::current_exception());
+            std::terminate();
         }
     };
     
-    using handle_type = std::coroutine_handle<promise_type>;
+    std::coroutine_handle<promise_type> coro_;
     
-private:
-    handle_type coro_;
-    
-public:
-    explicit Generator(handle_type coro) : coro_(coro) {}
+    explicit Generator(std::coroutine_handle<promise_type> h) : coro_(h) {}
     
     ~Generator() {
         if (coro_) {
@@ -54,9 +51,7 @@ public:
         }
     }
     
-    Generator(const Generator&) = delete;
-    Generator& operator=(const Generator&) = delete;
-    
+    // Move constructor and assignment
     Generator(Generator&& other) noexcept : coro_(other.coro_) {
         other.coro_ = {};
     }
@@ -72,13 +67,32 @@ public:
         return *this;
     }
     
+    // Delete copy constructor and assignment
+    Generator(const Generator&) = delete;
+    Generator& operator=(const Generator&) = delete;
+    
+    // Get next value
+    std::optional<T> next() {
+        if (!coro_ || coro_.done()) {
+            return std::nullopt;
+        }
+        
+        coro_.resume();
+        
+        if (coro_.done()) {
+            return std::nullopt;
+        }
+        
+        return std::make_optional<T>(std::move(coro_.promise().current_value));
+    }
+    
     // Iterator interface
     class iterator {
     private:
-        handle_type coro_;
+        std::coroutine_handle<promise_type> coro_;
         
     public:
-        explicit iterator(handle_type coro) : coro_(coro) {}
+        explicit iterator(std::coroutine_handle<promise_type> coro) : coro_(coro) {}
         
         iterator& operator++() {
             coro_.resume();
@@ -109,20 +123,6 @@ public:
     
     iterator end() {
         return iterator{{}};
-    }
-    
-    // Get next frame (non-iterator interface)
-    std::optional<T> next() {
-        if (!coro_ || coro_.done()) {
-            return std::nullopt;
-        }
-        
-        coro_.resume();
-        if (coro_.done()) {
-            return std::nullopt;
-        }
-        
-        return coro_.promise().current_value;
     }
 };
 

@@ -11,8 +11,8 @@
 #include <cassert>
 // #include <catch2/catch_all.hpp>  // Temporarily disabled
 
-#include "../sender/video_sender.hpp"
-#include "../receiver/video_receiver.hpp"
+import video_streaming.sender;
+import video_streaming.receiver;
 
 using namespace video_streaming;
 using namespace std::chrono_literals;

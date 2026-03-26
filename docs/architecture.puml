@@ -1,0 +1,155 @@
+﻿@startuml Video Streaming Architecture
+!pragma svgInteractive true
+'!theme plain
+
+' Масштаб и качество
+'scale max 4096 width
+'skinparam dpi 200
+'skinparam maxWidth 10000
+'skinparam maxHeight 10000
+
+' Общий стиль
+skinparam packageStyle rectangle
+skinparam package {
+    BackgroundColor LightGray
+    BorderColor DarkGray
+    FontColor Black
+}
+skinparam rectangle {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    FontColor Black
+}
+
+' Размещение пакетов сверху вниз
+top to bottom direction
+
+package "Core Types" as core {
+    [types]
+    [logger]
+    [interfaces]
+    [time]
+}
+
+package "Network Layer" as net {
+    [endpoint]
+    [udp_socket]
+    [sender]
+    [receiver]
+}
+
+package "RTP Transport" as rtp {
+    [rtp_packet]
+    [h264_packetizer]
+    [h264_depacketizer]
+    [rtcp]
+    [rtsp_client]
+}
+
+package "Video Processing" as video {
+    [frame]
+    [synthetic_encoder]
+    [ffmpeg_encoder]
+    [rtsp_server]
+    [jitter_buffer]
+}
+
+package "Session Layer" as session {
+    [video_sender]
+    [video_receiver]
+}
+
+package "Async Layer" as async {
+    [coroutine_types]
+    [coroutine_frame_gen]
+    [coroutine_sender]
+    [coroutine_receiver]
+}
+
+package "Orchestration" as orch {
+    [pipeline]
+}
+
+' -----------------------------
+' Зависимости (оставлены как есть)
+' -----------------------------
+
+endpoint --> types
+udp_socket --> types
+udp_socket --> endpoint
+
+sender --> types
+sender --> udp_socket
+sender --> rtp_packet
+
+receiver --> types
+receiver --> udp_socket
+receiver --> endpoint
+receiver --> rtp_packet
+
+rtp_packet --> types
+h264_packetizer --> types
+h264_packetizer --> rtp_packet
+h264_depacketizer --> types
+h264_depacketizer --> rtp_packet
+h264_depacketizer --> frame
+
+rtcp --> types
+rtsp_client --> types
+rtsp_client --> endpoint
+rtsp_client --> udp_socket
+
+frame --> types
+frame --> time
+synthetic_encoder --> types
+synthetic_encoder --> frame
+ffmpeg_encoder --> types
+ffmpeg_encoder --> frame
+rtsp_server --> types
+rtsp_server --> logger
+rtsp_server --> endpoint
+rtsp_server --> udp_socket
+
+jitter_buffer --> types
+jitter_buffer --> time
+jitter_buffer --> rtp_packet
+
+video_sender --> types
+video_sender --> logger
+video_sender --> frame
+video_sender --> synthetic_encoder
+video_sender --> ffmpeg_encoder
+video_sender --> h264_packetizer
+video_sender --> sender
+
+video_receiver --> types
+video_receiver --> logger
+video_receiver --> interfaces
+video_receiver --> frame
+video_receiver --> h264_depacketizer
+video_receiver --> jitter_buffer
+video_receiver --> receiver
+
+coroutine_types --> types
+coroutine_frame_gen --> types
+coroutine_frame_gen --> frame
+coroutine_frame_gen --> synthetic_encoder
+coroutine_sender --> types
+coroutine_sender --> h264_packetizer
+coroutine_sender --> sender
+coroutine_receiver --> types
+coroutine_receiver --> receiver
+
+pipeline --> logger
+pipeline --> interfaces
+pipeline --> frame
+pipeline --> h264_packetizer
+pipeline --> rtp_packet
+pipeline --> h264_depacketizer
+pipeline --> jitter_buffer
+pipeline --> synthetic_encoder
+pipeline --> types
+pipeline --> receiver
+pipeline --> sender
+
+@enduml

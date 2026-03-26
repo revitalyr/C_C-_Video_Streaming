@@ -32,7 +32,7 @@ export struct RtpPacket {
     Bytes payload;
     
     RtpPacket() = default;
-    RtpPacket(uint32_t ssrc, uint16_t sequence, uint32_t timestamp, uint8_t payload_type);
+    RtpPacket(int ssrc, uint16_t sequence, uint32_t timestamp, uint8_t payload_type);
     
     // Serialize full packet (header + payload)
     Bytes serialize() const;

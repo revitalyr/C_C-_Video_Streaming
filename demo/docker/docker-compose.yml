@@ -16,6 +16,11 @@ services:
     command: /app/build/network_sender --port 5000 --client receiver
     networks:
       - streaming_net
+    healthcheck:
+      test: ["CMD", "pidof", "network_sender"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   # Сервис-приемник
   receiver:
@@ -30,6 +35,11 @@ services:
     command: /app/build/viewer --port 5000
     networks:
       - streaming_net
+    healthcheck:
+      test: ["CMD", "pidof", "viewer"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
 networks:
   streaming_net:

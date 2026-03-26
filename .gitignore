@@ -6,8 +6,7 @@ vcpkg_installed/
 .cursor/
 .islstudio/
 .vibecheck/
-.*.swp
-.*.swo
+.*
 *~
 .DS_Store
 test_results/

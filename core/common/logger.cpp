@@ -369,13 +369,14 @@ LoggerManager& LoggerManager::instance() {
     return instance;
 }
 
-Result LoggerManager::create_logger(const String& name, LogLevel level) {
+std::shared_ptr<Logger> LoggerManager::create_logger(const String& name, LogLevel level) {
     std::lock_guard<std::mutex> lock(m_loggers_mutex);
     if (m_loggers.find(name) != m_loggers.end()) {
-        return Result::error(ErrorCode::Unknown, "Logger already exists");
+        throw std::runtime_error("Logger already exists: " + name);
     }
-    m_loggers[name] = std::make_unique<Logger>(name, level);
-    return Result::success();
+    auto logger = std::make_shared<Logger>(name, level);
+    m_loggers[name] = std::unique_ptr<Logger>(logger.get());
+    return logger;
 }
 
 bool LoggerManager::remove_logger(const String& name) {

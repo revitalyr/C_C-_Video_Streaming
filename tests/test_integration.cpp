@@ -11,6 +11,7 @@
 
 import video_streaming.logger;
 import video_streaming.interfaces;
+import video_streaming.common.types;
 
 using namespace video_streaming;
 

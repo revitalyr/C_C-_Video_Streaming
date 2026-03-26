@@ -46,7 +46,7 @@ std::vector<RtpPacket> H264Packetizer::packetize_frame(const Bytes& frame, u32 t
 std::vector<RtpPacket> H264Packetizer::create_single_nalu_packet(const Bytes& nalu, u32 timestamp) {
     std::vector<RtpPacket> packets;
     
-    RtpPacket packet(m_ssrc, m_sequence++, timestamp, RTP_PAYLOAD_TYPE_H264);
+    RtpPacket packet(static_cast<int>(m_ssrc), m_sequence++, timestamp, RTP_PAYLOAD_TYPE_H264);
     packet.payload = nalu;
     
     packets.push_back(std::move(packet));
@@ -76,7 +76,7 @@ std::vector<RtpPacket> H264Packetizer::create_fu_a_packets(const Bytes& nalu, u3
         size_t chunk_size = std::min(max_payload, nalu.size() - offset);
         bool last_packet = (offset + chunk_size) >= nalu.size();
         
-        RtpPacket packet(m_ssrc, m_sequence++, timestamp, RTP_PAYLOAD_TYPE_H264);
+        RtpPacket packet(static_cast<int>(m_ssrc), m_sequence++, timestamp, RTP_PAYLOAD_TYPE_H264);
         packet.payload.resize(2 + chunk_size);
         
         // FU Indicator

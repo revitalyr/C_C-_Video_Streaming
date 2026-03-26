@@ -78,7 +78,7 @@ private:
     void update_stats();
 
     Config m_config;
-    std::unique_ptr<Logger> m_logger;
+    std::shared_ptr<Logger> m_logger;
     FrameCallback m_frame_callback;
 
     std::unique_ptr<UdpSocket> m_socket; // or Receiver if unified

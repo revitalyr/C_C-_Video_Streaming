@@ -13,91 +13,14 @@ export module video_streaming.async.coroutine_network_sender;
 
 import video_streaming.media.frame;
 import video_streaming.common.types;
+import video_streaming.network.endpoint;
 import video_streaming.network.udp_socket;
 import video_streaming.rtp.h264_packetizer;
+import video_streaming.rtp.packet;
 import video_streaming.media.synthetic_encoder;
-import video_streaming.network.endpoint;
+import video_streaming.async.coroutine_types;
 
 export namespace video_streaming::async {
-
-// Async task wrapper for coroutines
-template<typename T>
-class Task {
-public:
-    struct promise_type {
-        T value_;
-        std::exception_ptr exception_;
-        
-        Task get_return_object() {
-            return Task{std::coroutine_handle<promise_type>::from_promise(*this)};
-        }
-        
-        std::suspend_never initial_suspend() { return {}; }
-        std::suspend_always final_suspend() noexcept { return {}; }
-        
-        void return_value(T value) {
-            value_ = std::move(value);
-        }
-        
-        void unhandled_exception() {
-            exception_ = std::current_exception();
-        }
-    };
-    
-    using handle_type = std::coroutine_handle<promise_type>;
-    
-private:
-    handle_type coro_;
-    
-public:
-    explicit Task(handle_type coro) : coro_(coro) {}
-    
-    ~Task() {
-        if (coro_) {
-            coro_.destroy();
-        }
-    }
-    
-    Task(const Task&) = delete;
-    Task& operator=(const Task&) = delete;
-    
-    Task(Task&& other) noexcept : coro_(other.coro_) {
-        other.coro_ = {};
-    }
-    
-    Task& operator=(Task&& other) noexcept {
-        if (this != &other) {
-            if (coro_) {
-                coro_.destroy();
-            }
-            coro_ = other.coro_;
-            other.coro_ = {};
-        }
-        return *this;
-    }
-    
-    // Get result (blocking)
-    T get() {
-        if (!coro_) {
-            throw std::runtime_error("Task has been moved or destroyed");
-        }
-        
-        while (!coro_.done()) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
-        
-        if (coro_.promise().exception_) {
-            std::rethrow_exception(coro_.promise().exception_);
-        }
-        
-        return std::move(coro_.promise().value_);
-    }
-    
-    // Check if completed
-    bool is_ready() const {
-        return coro_ && coro_.done();
-    }
-};
 
 // Coroutine-based network sender
 class CoroutineNetworkSender {

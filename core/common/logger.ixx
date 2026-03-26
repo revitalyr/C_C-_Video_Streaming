@@ -194,7 +194,7 @@ public:
     static LoggerManager& instance();
     
     // Modern logger management with semantic types
-    Result create_logger(const String& name, LogLevel level = LogLevel::INFO);
+    std::shared_ptr<Logger> create_logger(const String& name, LogLevel level = LogLevel::INFO);
     bool remove_logger(const String& name);
     Logger* get_logger(const String& name);
     

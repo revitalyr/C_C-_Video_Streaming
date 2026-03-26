@@ -6,7 +6,7 @@
 
 // Define SDL_MAIN_HANDLED to prevent SDL from redefining main()
 #define SDL_MAIN_HANDLED
-#include <SDL.h>
+#include <SDL2/SDL.h>
 
 import video_streaming.receiver;
 import video_streaming.media.frame;

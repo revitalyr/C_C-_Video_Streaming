@@ -49,20 +49,25 @@ target_sources(video_streaming_modules
     core/common/logger.ixx
     core/common/interfaces.ixx
     core/common/std.ixx
+    core/video/media/frame.ixx
     core/session/sender/video_sender.ixx
     core/session/receiver/video_receiver.ixx
     core/transport/rtp/h264_packetizer.ixx
     core/transport/rtp/h264_depacketizer.ixx
-    core/video/jitter/jitter_buffer.ixx
     core/transport/rtp/rtp_packet.ixx
+    core/transport/rtp/rtcp.ixx
+    core/transport/rtp/rtsp_client.ixx
+    core/video/jitter/jitter_buffer.ixx
     core/transport/network/udp_socket.ixx
-    core/video/media/synthetic_encoder.ixx
-    core/video/media/frame.ixx
     core/transport/network/endpoint.ixx
+    core/video/media/synthetic_encoder.ixx
+    core/video/media/ffmpeg_h264_encoder.ixx
+    core/video/media/rtsp_server.ixx
     core/transport/network/receiver.ixx
     core/transport/network/sender.ixx
     core/common/time.ixx
     # Async coroutine modules
+    core/async/coroutine_types.ixx
     core/async/coroutine_frame_generator.ixx
     core/async/coroutine_network_sender.ixx
     core/async/coroutine_receiver.ixx
@@ -72,14 +77,18 @@ target_sources(video_streaming_modules
     core/session/receiver/video_receiver.cpp
     core/transport/rtp/h264_packetizer.cpp
     core/transport/rtp/h264_depacketizer.cpp
-    core/video/jitter/jitter_buffer.cpp
     core/transport/rtp/rtp_packet.cpp
+    core/transport/rtp/rtcp.cpp
+    core/transport/rtp/rtsp_client.cpp
     core/transport/network/udp_socket.cpp
-    core/video/media/synthetic_encoder.cpp
-    core/video/media/frame.cpp
-    core/transport/network/endpoint.cpp
     core/transport/network/receiver.cpp
     core/transport/network/sender.cpp
+    core/video/media/synthetic_encoder.cpp
+    core/video/media/ffmpeg_h264_encoder.cpp
+    core/video/media/frame.cpp
+    core/video/media/rtsp_server.cpp
+    core/video/jitter/jitter_buffer.cpp
+    core/transport/network/endpoint.cpp
     core/common/time.cpp
 )
 
@@ -193,43 +202,29 @@ else()
     target_link_libraries(ffplay_viewer PRIVATE Threads::Threads)
 endif()
 
-# Visual demo (SDL2)
+# Visual demo (SDL2) - Video File Player
 if(FFMPEG_FOUND AND SDL2_FOUND AND SDL2TTF_FOUND)
     add_executable(visual_demo apps/vis/visual_demo.cpp)
     target_include_directories(visual_demo PRIVATE 
         ${CMAKE_CURRENT_SOURCE_DIR}/core
+        ${CMAKE_CURRENT_SOURCE_DIR}/core/transport
+        ${CMAKE_CURRENT_SOURCE_DIR}/core/video
+        ${CMAKE_CURRENT_SOURCE_DIR}/core/session
+        ${CMAKE_CURRENT_SOURCE_DIR}/core/async
         ${SDL2_INCLUDE_DIRS}
     )
     target_link_libraries(visual_demo PRIVATE video_streaming_impl PkgConfig::FFMPEG)
     target_link_libraries(visual_demo PRIVATE ${SDL2_LIBRARIES} ${SDL2TTF_LIBRARIES})
 endif()
 
-# Coroutine visual demo (SDL2) - EXPERIMENTAL
+# Coroutine visual demo (SDL2) - DEPRECATED (file removed)
 if(FFMPEG_FOUND AND SDL2_FOUND AND SDL2TTF_FOUND)
-    add_executable(coroutine_visual_demo apps/vis/coroutine_visual_demo.cpp)
-    target_include_directories(coroutine_visual_demo PRIVATE 
-        ${CMAKE_CURRENT_SOURCE_DIR}/core
-        ${SDL2_INCLUDE_DIRS}
-    )
-    target_link_libraries(coroutine_visual_demo PRIVATE video_streaming_impl PkgConfig::FFMPEG)
-    target_link_libraries(coroutine_visual_demo PRIVATE ${SDL2_LIBRARIES} ${SDL2TTF_LIBRARIES})
+    # coroutine_visual_demo.cpp was renamed to visual_demo.cpp
 endif()
 
 # SDL2 GUI Viewer
 if(FFMPEG_FOUND AND SDL2_FOUND)
-    add_executable(sdl_viewer apps/vis/sdl_viewer.cpp)
-    target_include_directories(sdl_viewer PRIVATE 
-        ${CMAKE_CURRENT_SOURCE_DIR}/core
-        ${CMAKE_CURRENT_SOURCE_DIR}/core/transport
-        ${CMAKE_CURRENT_SOURCE_DIR}/core/video
-        ${CMAKE_CURRENT_SOURCE_DIR}/core/session
-    )
-    target_link_libraries(sdl_viewer PRIVATE video_streaming_impl PkgConfig::FFMPEG)
-    if(TARGET SDL2::SDL2)
-        target_link_libraries(sdl_viewer PRIVATE SDL2::SDL2)
-    elseif(TARGET PkgConfig::SDL2)
-        target_link_libraries(sdl_viewer PRIVATE PkgConfig::SDL2)
-    endif()
+    # sdl_viewer target already exists above
 endif()
 
 # Viewer client for RTSP streaming

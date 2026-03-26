@@ -1,7 +1,39 @@
 # 🎬 Real-time Video Streaming System
 
-A high-performance **real-time video streaming system** implemented in modern C++.
+A high-performance **real-time video streaming system** implemented in modern C++ with **C++20 modules**.
 Focuses on low-latency H.264 streaming over UDP/RTP with custom network simulation.
+
+## 🏗️ Architecture
+
+### ✅ **C++20 Modules Migration Complete**
+
+This project has been **completely migrated to C++20 modules**, providing:
+- **Faster compilation** through module boundaries
+- **Better encapsulation** with explicit import/export
+- **Cleaner dependencies** with no header files
+- **Modern C++ design** with type-safe interfaces
+
+### 📊 Module Structure
+
+```
+video_streaming (root namespace)
+├── common          # Core types, logging, interfaces
+├── network         # UDP networking, senders/receivers  
+├── transport/rtp   # RTP protocol implementation
+├── video/media     # Video encoding/processing
+├── video/jitter    # Jitter buffer for packet reordering
+├── session         # High-level session management
+├── async           # Coroutine-based async operations
+└── pipeline        # Main orchestration logic
+```
+
+### 🎯 Key Components
+
+- **🌐 Network Layer**: UDP sockets, senders, receivers
+- **📦 RTP Protocol**: Packetization, depacketization, RTCP
+- **🎥 Video Processing**: H.264 encoding, frame management
+- **⚡ Async Operations**: Coroutine-based networking
+- **🎛️ Pipeline**: Complete streaming orchestration
 
 ## 🔥 Killer Demo: One Command
 
@@ -27,6 +59,73 @@ Focuses on low-latency H.264 streaming over UDP/RTP with custom network simulati
 
 # FFplay mode
 .\demo.ps1 -Mode ffplay -Loss 5
+```
+
+## 📈 Architecture Documentation
+
+### 📋 **Module Dependencies**
+- **[Module Dependencies](docs/module_dependencies.md)** - Complete module structure and dependency graph
+- **[Architecture Diagram](docs/architecture.puml)** - Visual module relationships (PlantUML)
+- **[Class Diagram](docs/class_diagram.puml)** - Detailed class relationships (PlantUML)
+
+### 🔍 **Key Design Patterns**
+
+#### **Module-Based Architecture**
+- Each logical component is a separate C++20 module
+- Clear separation between interface (.ixx) and implementation (.cpp)
+- Explicit import dependencies prevent circular dependencies
+
+#### **Network Layer Abstraction**
+```cpp
+// High-level interface
+Sender sender("127.0.0.1", 5004);
+sender.start();
+sender.send(rtp_packet);
+
+// Low-level socket
+UdpSocket socket;
+socket.open();
+socket.send(data, endpoint);
+```
+
+#### **RTP Protocol Implementation**
+```cpp
+// Frame → RTP Packets
+H264Packetizer packetizer(ssrc);
+auto packets = packetizer.packetize_frame(frame_data, timestamp);
+
+// RTP Packets → Frame
+H264Depacketizer depacketizer;
+auto frames = depacketizer.process_packet(rtp_packet);
+```
+
+#### **Pipeline Orchestration**
+```cpp
+Pipeline config;
+config.width = 1920;
+config.height = 1080;
+config.fps = 30;
+config.enable_sender = true;
+config.enable_receiver = true;
+
+Pipeline pipeline(config);
+pipeline.start();
+```
+
+### 🏗️ **Build System**
+
+The project uses **CMake** with **Ninja** and **vcpkg** for dependency management:
+
+```bash
+# Configure with vcpkg toolchain
+cmake -S . -B build -DBUILD_TESTING=1 \
+  -DCMAKE_TOOLCHAIN_FILE=vcpkg/scripts/buildsystems/vcpkg.cmake
+
+# Build with modules
+cmake --build build
+
+# Run tests
+./build/video_streaming_tests
 ```
 
 **What you'll see:**

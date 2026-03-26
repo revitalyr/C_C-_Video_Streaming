@@ -25,14 +25,31 @@ export enum class FrameType {
 };
 
 export struct Frame {
-    int width = 0;
-    int height = 0;
-    PixelFormat format = PixelFormat::Unknown;
-    FrameType type = FrameType::Unknown;
-    
     std::vector<uint8_t> data;
     Timestamp timestamp = 0; // Presentation timestamp
+    FrameType type = FrameType::Unknown;
+    PixelFormat format = PixelFormat::Unknown;
+    int width = 0;
+    int height = 0;
+    int stride = 0;
+
+    Frame() = default;
+    Frame(int w, int h, PixelFormat fmt, Timestamp ts);
     
+    size_t get_frame_size() const {
+        switch (format) {
+            case PixelFormat::YUV420P:
+                return static_cast<size_t>(width) * height * 3 / 2;
+            case PixelFormat::RGB24:
+                return static_cast<size_t>(width) * height * 3;
+            default:
+                return data.size();
+        }
+    }
+
+    void allocate_buffer();
+    void clear();
+
     bool is_valid() const {
         return width > 0 && height > 0 && !data.empty();
     }
@@ -46,8 +63,17 @@ export struct EncodedFrame {
 
 export class FrameFactory {
 public:
-    static Frame create_yuv420p(int width, int height, Timestamp timestamp = 0);
     static Frame create_test_pattern(int width, int height, Timestamp timestamp = 0);
+    static Frame create_color_bar(int width, int height, Timestamp timestamp = 0);
+    static Frame create_gradient(int width, int height, Timestamp timestamp = 0);
+    static Frame create_noise(int width, int height, Timestamp timestamp = 0);
+
+private:
+    static void fill_yuv420p(Frame& frame, int width, int height);
+    static void generate_color_bar_data(u8* y_plane, u8* u_plane, u8* v_plane, 
+                                       int width, int height, int bar_index);
+    static void generate_gradient_data(u8* y_plane, u8* u_plane, u8* v_plane, 
+                                       int width, int height);
 };
 
 export enum class NalType : uint8_t {

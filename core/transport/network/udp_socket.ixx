@@ -38,7 +38,7 @@ public:
     UdpSocket(UdpSocket&& other) noexcept;
     UdpSocket& operator=(UdpSocket&& other) noexcept;
     
-    bool is_open() const { return m_socket != INVALID_SOCKET; }
+    bool is_open() const;
     
     // Socket operations
     bool open();

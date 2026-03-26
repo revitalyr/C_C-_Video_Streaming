@@ -1,0 +1,41 @@
+# Simple Dockerfile for coroutine visual demo
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    pkg-config \
+    libavcodec-dev \
+    libavdevice-dev \
+    libavfilter-dev \
+    libavformat-dev \
+    libavutil-dev \
+    libswscale-dev \
+    libsdl2-dev \
+    libsdl2-ttf-dev \
+    wget \
+    ffmpeg \
+    libspdlog-dev \
+    ninja-build \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install newer CMake and Ninja
+RUN wget https://github.com/Kitware/CMake/releases/download/v3.30.0/cmake-3.30.0-linux-x86_64.sh -O cmake.sh && chmod +x cmake.sh && ./cmake.sh --skip-license --prefix=/usr/local && rm cmake.sh
+RUN wget https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-linux.zip -O ninja.zip && unzip ninja.zip && chmod +x ninja && mv ninja /usr/local/bin/ && rm ninja.zip
+
+WORKDIR /app
+COPY . .
+
+# Build only coroutine visual demo
+RUN mkdir build && cd build && \
+    cmake -G Ninja .. -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build . --target coroutine_visual_demo
+
+WORKDIR /app/build
+EXPOSE 5000
+
+CMD ["./coroutine_visual_demo", "--width", "640", "--height", "480", "--fps", "30"]

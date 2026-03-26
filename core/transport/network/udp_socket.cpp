@@ -43,12 +43,25 @@ bool UdpSocket::initialize_winsock() { return true; }
 void UdpSocket::cleanup_winsock() {}
 #endif
 
-UdpSocket::UdpSocket() {
+UdpSocket::UdpSocket() 
+    : m_socket(INVALID_SOCKET), m_initialized(false) {
     initialize_winsock();
 }
 
 UdpSocket::~UdpSocket() {
     close();
+}
+
+bool UdpSocket::is_open() const {
+    // Debug: Check if this pointer is valid
+    if (!this) {
+        return false;
+    }
+    // Debug: Check if m_socket is properly initialized
+    if (m_socket == INVALID_SOCKET) {
+        return false;
+    }
+    return true;
 }
 
 UdpSocket::UdpSocket(UdpSocket&& other) noexcept

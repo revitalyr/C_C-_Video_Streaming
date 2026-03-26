@@ -1,12 +1,16 @@
 module;
 
+#include <memory>
+
 module video_streaming.network.sender;
 import video_streaming.common.types;
+import video_streaming.network.udp_socket;
+import video_streaming.rtp.packet;
 
 namespace video_streaming {
 
 Sender::Sender(const String& ip, Port port) 
-    : m_destination(ip, port) {
+    : m_destination(ip, port), m_socket(std::make_unique<UdpSocket>()) {
 }
 
 Sender::~Sender() {

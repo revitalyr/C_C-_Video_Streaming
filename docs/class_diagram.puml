@@ -1,0 +1,243 @@
+﻿@startuml Class Diagram
+
+!theme plain
+scale 2
+
+' Core Classes
+class LoggerManager {
+    -static instance: LoggerManager*
+    -loggers: map<string, shared_ptr<Logger>>
+    +static instance(): LoggerManager&
+    +create_logger(name: string): shared_ptr<Logger>
+    +get_logger(name: string): shared_ptr<Logger>
+}
+
+class Logger {
+    -name: string
+    -level: LogLevel
+    +info(message: string): void
+    +error(message: string): void
+    +warning(message: string): void
+    +debug(message: string): void
+}
+
+' Network Classes
+class UdpSocket {
+    -m_socket: SocketHandle
+    -m_initialized: bool
+    +UdpSocket()
+    +~UdpSocket()
+    +is_open(): bool
+    +open(): bool
+    +close(): void
+    +bind(port: Port): bool
+    +bind(endpoint: Endpoint): bool
+    +send(data: Bytes, remote: Endpoint): bool
+    +receive_from(buffer: Bytes&, max_size: size_t, sender: Endpoint&): int
+    -initialize_winsock(): bool
+    -cleanup_winsock(): void
+}
+
+class Sender {
+    -m_socket: unique_ptr<UdpSocket>
+    -m_destination: Endpoint
+    +Sender(ip: String, port: Port)
+    +~Sender()
+    +start(): bool
+    +stop(): void
+    +send(packet: RtpPacket): bool
+}
+
+class Receiver {
+    -m_socket: unique_ptr<UdpSocket>
+    -m_port: Port
+    +Receiver(port: Port)
+    +~Receiver()
+    +start(): bool
+    +stop(): void
+    +receive(): optional<RtpPacket>
+}
+
+' RTP Classes
+class RtpPacket {
+    -m_header: RtpHeader
+    -m_payload: Bytes
+    +RtpPacket()
+    +RtpPacket(ssrc: int, sequence: uint16_t, timestamp: uint32_t, payload_type: uint8_t)
+    +serialize(): Bytes
+    +deserialize(span: span<const uint8_t>): bool
+    +get_sequence(): uint16_t
+    +get_timestamp(): uint32_t
+    +get_ssrc(): uint32_t
+}
+
+class H264Packetizer {
+    -m_ssrc: uint32_t
+    -m_sequence: uint16_t
+    +H264Packetizer(ssrc: uint32_t)
+    +packetize_frame(data: Bytes, timestamp: uint32_t): vector<RtpPacket>
+    -create_single_nalu_packet(nalu: Bytes, timestamp: uint32_t): RtpPacket
+    -create_fu_a_packets(nalu: Bytes, timestamp: uint32_t): vector<RtpPacket>
+}
+
+class H264Depacketizer {
+    -m_buffer: Bytes
+    +H264Depacketizer()
+    +process_packet(packet: RtpPacket): vector<Frame>
+    +is_complete_frame(): bool
+    -process_fu_a_packet(packet: RtpPacket): optional<Bytes>
+    -process_single_nalu_packet(packet: RtpPacket): optional<Bytes>
+}
+
+' Video Classes
+class Frame {
+    -m_data: Bytes
+    -m_timestamp: Timestamp
+    -m_width: int
+    -m_height: int
+    +Frame()
+    +Frame(data: Bytes, timestamp: Timestamp, width: int, height: int)
+    +data(): Bytes
+    +timestamp(): Timestamp
+    +width(): int
+    +height(): int
+}
+
+class FrameFactory {
+    +create_test_pattern(width: int, height: int, timestamp: Timestamp): Frame
+    +create_empty_frame(width: int, height: int, timestamp: Timestamp): Frame
+}
+
+class SyntheticH264Encoder {
+    -m_width: int
+    -m_height: int
+    -m_fps: int
+    -m_bitrate: int
+    +SyntheticH264Encoder(width: int, height: int, fps: int, bitrate: int)
+    +encode(frame: Frame): vector<EncodedFrame>
+    -generate_h264_frame(): Bytes
+}
+
+class EncodedFrame {
+    -m_data: Bytes
+    -m_timestamp: Timestamp
+    -m_keyframe: bool
+    +EncodedFrame(data: Bytes, timestamp: Timestamp, keyframe: bool)
+    +data(): Bytes
+    +timestamp(): Timestamp
+    +is_keyframe(): bool
+}
+
+class JitterBuffer {
+    -m_packets: queue<RtpPacket>
+    -m_mutex: mutex
+    -m_max_size: size_t
+    +JitterBuffer(size: size_t, delay: Milliseconds)
+    +push(packet: RtpPacket): void
+    +pop(packet: RtpPacket&): bool
+    +size(): size_t
+    +clear(): void
+}
+
+' Pipeline Classes
+class PipelineConfig {
+    +width: int
+    +height: int
+    +fps: int
+    +bitrate: int
+    +dest_ip: String
+    +dest_port: Port
+    +src_port: Port
+    +jitter_size: size_t
+    +jitter_delay: Milliseconds
+    +enable_sender: bool
+    +enable_receiver: bool
+}
+
+class PipelineMetrics {
+    +glass_to_glass_ms: double
+    +jitter_buffer_depth_ms: double
+}
+
+class Pipeline {
+    -m_config: PipelineConfig
+    -m_running: atomic<bool>
+    -m_metrics: PipelineMetrics
+    -m_encoder: SyntheticH264Encoder
+    -m_packetizer: H264Packetizer
+    -m_sender: Sender
+    -m_receiver: Receiver
+    -m_jitter_buffer: JitterBuffer
+    -m_depacketizer: H264Depacketizer
+    -m_capture_thread: thread
+    -m_process_thread: thread
+    +Pipeline(config: PipelineConfig)
+    +~Pipeline()
+    +start(): bool
+    +stop(): void
+    +get_metrics(): PipelineMetrics
+    -capture_loop(): void
+    -process_loop(): void
+}
+
+' Interfaces
+class IReceiver {
+    +receive(): optional<Frame>
+    +start(): bool
+    +stop(): bool
+}
+
+' Relationships
+LoggerManager --> Logger : creates
+LoggerManager --> Logger : manages
+
+Sender --> UdpSocket : uses
+Receiver --> UdpSocket : uses
+
+H264Packetizer --> RtpPacket : creates
+H264Depacketizer --> RtpPacket : processes
+H264Depacketizer --> Frame : creates
+
+JitterBuffer --> RtpPacket : stores
+
+SyntheticH264Encoder --> Frame : encodes
+SyntheticH264Encoder --> EncodedFrame : produces
+
+FrameFactory --> Frame : creates
+
+Pipeline --> SyntheticH264Encoder : uses
+Pipeline --> H264Packetizer : uses
+Pipeline --> Sender : uses
+Pipeline --> Receiver : uses
+Pipeline --> JitterBuffer : uses
+Pipeline --> H264Depacketizer : uses
+Pipeline --> LoggerManager : uses
+
+VideoReceiver --> IReceiver : implements
+
+' Inheritance
+VideoReceiver --|> IReceiver
+
+' Composition
+Sender *-- UdpSocket
+Receiver *-- UdpSocket
+Pipeline *-- SyntheticH264Encoder
+Pipeline *-- H264Packetizer
+Pipeline *-- Sender
+Pipeline *-- Receiver
+Pipeline *-- JitterBuffer
+Pipeline *-- H264Depacketizer
+
+' Styling
+skinparam class {
+    BackgroundColor LightBlue
+    BorderColor DarkBlue
+    FontColor Black
+}
+
+skinparam classHeader {
+    BackgroundColor DarkBlue
+    FontColor White
+}
+
+@enduml

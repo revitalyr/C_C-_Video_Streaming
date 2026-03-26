@@ -1,7 +1,14 @@
-#include "frame.hpp"
+module;
+
 #include <cstring>
 #include <random>
 #include <cmath>
+
+module video_streaming.media.frame;
+
+import video_streaming.common.types;
+
+namespace video_streaming {
 
 Frame::Frame(int w, int h, PixelFormat fmt, Timestamp ts)
     : timestamp(ts), format(fmt), width(w), height(h) {
@@ -167,3 +174,5 @@ void FrameFactory::generate_gradient_data(u8* y_plane, u8* u_plane, u8* v_plane,
         }
     }
 }
+
+} // namespace video_streaming
