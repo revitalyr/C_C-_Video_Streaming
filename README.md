@@ -63,6 +63,16 @@ video_streaming (root namespace)
 
 ## 📈 Architecture Documentation
 
+### 📋 **Interactive Documentation** (NEW)
+- **[Interactive HTML Docs](docs/index.html)** - Complete technical documentation with Mermaid diagrams
+  - 📊 System Overview with architecture diagrams
+  - 🏗️ C++20 Module structure and dependencies
+  - 🔄 End-to-end data flow visualization
+  - 🌐 Network protocol stack (RTP/RTSP/UDP)
+  - 🎥 Video processing pipeline
+  - 🚀 Build & deployment guide
+  - Open `docs/index.html` in your browser
+
 ### 📋 **Module Dependencies**
 - **[Module Dependencies](docs/module_dependencies.md)** - Complete module structure and dependency graph
 - **[Architecture Diagram](docs/architecture.puml)** - Visual module relationships (PlantUML)

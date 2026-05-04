@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Video Streaming System - Documentation</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            padding: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            background: linear-gradient(to right, #fff, #e0e0e0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            margin-top: 10px;
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .nav-tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            overflow-x: auto;
+        }
+
+        .nav-tab {
+            padding: 15px 20px;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #6c757d;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-tab:hover {
+            color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .nav-tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .tab-content {
+            display: none;
+            padding: 30px;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .diagram-container {
+            position: relative;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            overflow-x: auto;
+            overflow-y: auto;
+            min-height: 400px;
+        }
+
+        .scale-controls {
+            position: sticky;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 5px;
+            justify-content: flex-end;
+            z-index: 1000;
+            margin-bottom: 10px;
+        }
+
+        .scale-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+        }
+
+        .scale-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .scale-display {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 60px;
+            background: white;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #667eea;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .mermaid {
+            transform-origin: top left;
+            transition: transform 0.3s ease;
+        }
+
+        .feature-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .feature-section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .feature-list {
+            list-style: none;
+        }
+
+        .feature-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+
+        .feature-list li::before {
+            content: "✅";
+            margin-right: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        tr:hover {
+            background: #e9ecef;
+        }
+
+        .tech-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin: 3px;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        h3 {
+            color: #667eea;
+            margin: 25px 0 15px;
+            font-size: 1.2rem;
+        }
+
+        p {
+            line-height: 1.6;
+            color: #555;
+            margin-bottom: 15px;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .nav-tab {
+                padding: 12px 15px;
+                font-size: 0.85rem;
+            }
+
+            .tab-content {
+                padding: 20px;
+            }
+
+            .scale-btn {
+                width: 32px;
+                height: 32px;
+                font-size: 1rem;
+            }
+
+            th, td {
+                padding: 8px;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎬 Real-time Video Streaming System</h1>
+            <p>High-performance H.264 video streaming over UDP/RTP with C++20 modules</p>
+        </div>
+
+        <div class="nav-tabs">
+            <button class="nav-tab active" data-tab="overview">📊 Overview</button>
+            <button class="nav-tab" data-tab="architecture">🏗️ Architecture</button>
+            <button class="nav-tab" data-tab="dataflow">🔄 Data Flow</button>
+            <button class="nav-tab" data-tab="network">🌐 Network</button>
+            <button class="nav-tab" data-tab="video">🎥 Video</button>
+            <button class="nav-tab" data-tab="build">🚀 Build & Deploy</button>
+        </div>
+
+        <!-- Overview Tab -->
+        <div class="tab-content active" id="overview">
+            <h2>System Overview</h2>
+            <p>A high-performance real-time video streaming system implemented in modern C++ with C++20 modules. The system focuses on low-latency H.264 streaming over UDP/RTP with custom network simulation capabilities.</p>
+
+            <div class="feature-section">
+                <h3>Key Capabilities</h3>
+                <ul class="feature-list">
+                    <li>Low-latency H.264 video encoding and decoding via FFmpeg</li>
+                    <li>RTP/RTCP protocol implementation for packetization</li>
+                    <li>UDP socket abstraction with async I/O support</li>
+                    <li>Jitter buffer for packet reordering and loss concealment</li>
+                    <li>Network simulation with configurable loss, delay, and jitter</li>
+                    <li>Coroutine-based async operations (C++20)</li>
+                    <li>SDL2-based visual rendering pipeline</li>
+                    <li>RTSP client and server support</li>
+                </ul>
+            </div>
+
+            <div class="feature-section">
+                <h3>Technology Stack</h3>
+                <div>
+                    <span class="tech-badge">C++23</span>
+                    <span class="tech-badge">C++20 Modules</span>
+                    <span class="tech-badge">FFmpeg</span>
+                    <span class="tech-badge">SDL2</span>
+                    <span class="tech-badge">spdlog</span>
+                    <span class="tech-badge">fmt</span>
+                    <span class="tech-badge">Catch2</span>
+                    <span class="tech-badge">CMake</span>
+                    <span class="tech-badge">vcpkg</span>
+                    <span class="tech-badge">Docker</span>
+                </div>
+            </div>
+
+            <h3>High-Level Architecture</h3>
+            <div class="diagram-container">
+                <div class="scale-controls">
+                    <button class="scale-btn" data-scale-delta="-10">−</button>
+                    <div class="scale-display" id="overview-scale">100%</div>
+                    <button class="scale-btn" data-scale-delta="10">+</button>
+                    <button class="scale-btn" data-reset-scale="">⟲</button>
+                </div>
+                <div class="mermaid" id="overview-diagram">
+graph TD
+    subgraph Input["📹 Input Sources"]
+        A["Camera Device"]:::input
+        B["Synthetic Generator"]:::input
+        C["Video File"]:::input
+    end
+
+    subgraph Pipeline["⚡ Processing Pipeline"]
+        D["H264 Encoder"]:::process
+        E["RTP Packetizer"]:::process
+        F["Jitter Buffer"]:::process
+        G["H264 Decoder"]:::process
+    end
+
+    subgraph Network["🌐 Network Layer"]
+        H["UDP Socket"]:::network
+        I["RTSP Client"]:::network
+        J["RTSP Server"]:::network
+    end
+
+    subgraph Output["🖥️ Output"]
+        K["SDL Renderer"]:::output
+        L["FFplay Viewer"]:::output
+    end
+
+    A --> D
+    B --> D
+    C --> D
+    D --> E
+    E --> H
+    H --> F
+    F --> G
+    G --> K
+    I --> H
+    J --> H
+    H --> L
+
+    classDef input fill:#28a745,stroke:#1e7e34,color:#fff
+    classDef process fill:#667eea,stroke:#5a6fd6,color:#fff
+    classDef network fill:#ffc107,stroke:#e0a800,color:#000
+    classDef output fill:#dc3545,stroke:#c82333,color:#fff
+                </div>
+            </div>
+
+            <h3>Project Statistics</h3>
+            <table>
+                <tr><th>Metric</th><th>Value</th></tr>
+                <tr><td>Core Modules</td><td>9</td></tr>
+                <tr><td>Module Files</td><td>25+ .ixx files</td></tr>
+                <tr><td>Applications</td><td>4 (basic, rtsp, vis, exp)</td></tr>
+                <tr><td>Test Suites</td><td>5</td></tr>
+                <tr><td>Target Platform</td><td>Linux, Windows</td></tr>
+            </table>
+        </div>
+
+        <!-- Architecture Tab -->
+        <div class="tab-content" id="architecture">
+            <h2>Module Architecture</h2>
+            <p>The project uses C++20 modules for clean separation of concerns with explicit import/export declarations. Each module represents a logical component of the streaming system.</p>
+
+            <h3>Module Hierarchy</h3>
+            <div class="diagram-container">
+                <div class="scale-controls">
+                    <button class="scale-btn" data-scale-delta="-10">−</button>
+                    <div class="scale-display" id="architecture-scale">100%</div>
+                    <button class="scale-btn" data-scale-delta="10">+</button>
+                    <button class="scale-btn" data-reset-scale="">⟲</button>
+                </div>
+                <div class="mermaid" id="architecture-diagram">
+graph TD
+    ROOT["video_streaming"]:::root
+
+    ROOT --> COMMON["common"]:::module
+    ROOT --> NETWORK["network"]:::module
+    ROOT --> TRANSPORT["transport"]:::module
+    ROOT --> VIDEO["video"]:::module
+    ROOT --> SESSION["session"]:::module
+    ROOT --> ASYNC["async"]:::module
+    ROOT --> PIPELINE["pipeline"]:::module
+
+    COMMON --> TYPES["types.ixx"]:::file
+    COMMON --> LOGGER["logger.ixx"]:::file
+    COMMON --> INTERFACES["interfaces.ixx"]:::file
+    COMMON --> STD["std.ixx"]:::file
+
+    NETWORK --> UDP["udp_socket.ixx"]:::file
+    NETWORK --> ENDPOINT["endpoint.ixx"]:::file
+    NETWORK --> SENDER["sender.ixx"]:::file
+    NETWORK --> RECEIVER["receiver.ixx"]:::file
+
+    TRANSPORT --> RTP["rtp_packet.ixx"]:::file
+    TRANSPORT --> PACK["h264_packetizer.ixx"]:::file
+    TRANSPORT --> DEPACK["h264_depacketizer.ixx"]:::file
+    TRANSPORT --> RTCP["rtcp.ixx"]:::file
+    TRANSPORT --> RTSP["rtsp_client.ixx"]:::file
+    TRANSPORT --> RTSP_S["rtsp_server.ixx"]:::file
+
+    VIDEO --> FRAME["frame.ixx"]:::file
+    VIDEO --> SYNTH["synthetic_encoder.ixx"]:::file
+    VIDEO --> FFMPEG["ffmpeg_h264_encoder.ixx"]:::file
+    VIDEO --> JITTER["jitter_buffer.ixx"]:::file
+
+    SESSION --> VIDSEND["video_sender.ixx"]:::file
+    SESSION --> VIDREC["video_receiver.ixx"]:::file
+
+    ASYNC --> COTYPES["coroutine_types.ixx"]:::file
+    ASYNC --> COGEN["coroutine_frame_generator.ixx"]:::file
+    ASYNC --> COSEND["coroutine_network_sender.ixx"]:::file
+    ASYNC --> CORECV["coroutine_receiver.ixx"]:::file
+
+    classDef root fill:#667eea,stroke:#5a6fd6,color:#fff
+    classDef module fill:#764ba2,stroke:#6a4190,color:#fff
+    classDef file fill:#28a745,stroke:#1e7e34,color:#fff
+                </div>
+            </div>
+
+            <h3>Module Dependencies</h3>
+            <table>
+                <tr><th>Module</th><th>Dependencies</th><th>Purpose</th></tr>
+                <tr><td>common</td><td>None (foundation)</td><td>Core types, logging, standard wrappers</td></tr>
+                <tr><td>network</td><td>common</td><td>UDP sockets, endpoints, senders, receivers</td></tr>
+                <tr><td>transport/rtp</td><td>common, network</td><td>RTP protocol, packetization, RTCP</td></tr>
+                <tr><td>video</td><td>common</td><td>Frame management, encoders, jitter buffer</td></tr>
+                <tr><td>session</td><td>common, network, transport, video</td><td>High-level sender/receiver sessions</td></tr>
+                <tr><td>async</td><td>common, network, video</td><td>Coroutine-based async operations</td></tr>
+                <tr><td>pipeline</td><td>All modules</td><td>Orchestration and configuration</td></tr>
+            </table>
+
+            <h3>Component Interaction</h3>
+            <div class="diagram-container">
+                <div class="scale-controls">
+                    <button class="scale-btn" data-scale-delta="-10">−</button>
+                    <div class="scale-display" id="arch-seq-scale">100%</div>
+                    <button class="scale-btn" data-scale-delta="10">+</button>
+                    <button class="scale-btn" data-reset-scale="">⟲</button>
+                </div>
+                <div class="mermaid" id="arch-seq-diagram">
+sequenceDiagram
+    participant App as Application
+    participant Pipe as Pipeline
+    participant Sess as Session
+    participant Vid as Video
+    participant RTP as RTP
+    participant Net as Network
+
+    App->>Pipe: Configure & Start
+    Pipe->>Sess: Create Sender
+    Pipe->>Sess: Create Receiver
+
+    Sess->>Vid: Initialize Encoder
+    Vid-->>Sess: Encoder Ready
+
+    Sess->>RTP: Create Packetizer
+    RTP-->>Sess: Packetizer Ready
+
+    Sess->>Net: Open UDP Socket
+    Net-->>Sess: Socket Ready
+
+    loop Streaming Loop
+        Vid->>Vid: Generate Frame
+        Vid->>RTP: Encode & Packetize
+        RTP->>Net: Send RTP Packets
+        Net->>RTP: Receive Packets
+        RTP->>Vid: Depacketize & Decode
+        Vid->>App: Render Frame
+    end
+
+    App->>Pipe: Stop
+    Pipe->>Sess: Terminate Sessions
+    Sess->>Net: Close Sockets
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Flow Tab -->
+        <div class="tab-content" id="dataflow">
+            <h2>End-to-End Data Flow</h2>
+            <p>The streaming pipeline processes video from capture to display through multiple stages, handling encoding, packetization, network transmission, and decoding.</p>
+
+            <h3>Pipeline Flow</h3>
+            <div class="diagram-container">
+                <div class="scale-controls">
+                    <button class="scale-btn" data-scale-delta="-10">−</button>
+                    <div class="scale-display" id="dataflow-scale">100%</div>
+                    <button class="scale-btn" data-scale-delta="10">+</button>
+                    <button class="scale-btn" data-reset-scale="">⟲</button>
+                </div>
+                <div class="mermaid" id="dataflow-diagram">
+graph LR
+    subgraph SenderSide["📤 Sender Side"]
+        A["Frame Source"]:::source
+        B["H264 Encoder"]:::encoder
+        C["RTP Packetizer"]:::packetizer
+        D["UDP Send"]:::network
+    end
+
+    subgraph Network["🌐 Network"]
+        E["Packets in Transit"]:::transit
+        F["Packet Loss"]:::loss
+        G["Delay & Jitter"]:::delay
+    end
+
+    subgraph ReceiverSide["📥 Receiver Side"]
+        H["UDP Receive"]:::network
+        I["Jitter Buffer"]:::buffer
+        J["RTP Depacketizer"]:::depacketizer
+        K["H264 Decoder"]:::decoder
+        L["Display Output"]:::display
+    end
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> H
+    E --> F
+    E --> G
+    G --> H
+    H --> I
+    I --> J
+    J --> K
+    K --> L
+
+    classDef source fill:#28a745,stroke:#1e7e34,color:#fff
+    classDef encoder fill:#667eea,stroke:#5a6fd6,color:#fff
+    classDef packetizer fill:#667eea,stroke:#5a6fd6,color:#fff
+    classDef network fill:#ffc107,stroke:#e0a800,color:#000
+    classDef transit fill:#6c757d,stroke:#5a6268,color:#fff
+    classDef loss fill:#dc3545,stroke:#c82333,color:#fff
+    classDef delay fill:#ffc107,stroke:#e0a800,color:#000
+    classDef buffer fill:#17a2b8,stroke:#138496,color:#fff
+    classDef depacketizer fill:#667eea,stroke:#5a6fd6,color:#fff
+    classDef decoder fill:#667eea,stroke:#5a6fd6,color:#fff
+    classDef display fill:#28a745,stroke:#1e7e34,color:#fff
+                </div>
+            </div>
+
+            <h3>Frame Processing Stages</h3>
+            <table>
+                <tr><th>Stage</th><th>Input</th><th>Output</th><th>Component</th></tr>
+                <tr><td>Capture</td><td>Raw pixels</td><td>Frame object</td><td>Frame Generator</td></tr>
+                <tr><td>Encode</td><td>Frame (YUV)</td><td>H264 NAL units</td><td>FFmpeg H264 Encoder</td></tr>
+                <tr><td>Packetize</td><td>NAL units</td><td>RTP packets</td><td>H264 Packetizer</td></tr>
+                <tr><td>Transmit</td><td>RTP packets</td><td>UDP datagrams</td><td>Network Sender</td></tr>
+                <tr><td>Receive</td><td>UDP datagrams</td><td>RTP packets</td><td>Network Receiver</td></tr>
+                <tr><td>Buffer</td><td>RTP packets</td><td>Ordered packets</td><td>Jitter Buffer</td></tr>
+                <tr><td>Depacketize</td><td>RTP packets</td><td>NAL units</td><td>H264 Depacketizer</td></tr>
+                <tr><td>Decode</td><td>NAL units</td><td>Frame (YUV)</td><td>FFmpeg H264 Decoder</td></tr>
+                <tr><td>Render</td><td>Frame (RGB)</td><td>Display</td><td>SDL Renderer</td></tr>
+            </table>
+
+            <h3>Async Coroutine Flow</h3>
+            <div class="diagram-container">
+                <div class="scale-controls">
+                    <button class="scale-btn" data-scale-delta="-10">−</button>
+                    <div class="scale-display" id="async-scale">100%</div>
+                    <button class="scale-btn" data-scale-delta="10">+</button>
+                    <button class="scale-btn" data-reset-scale="">⟲</button>
+                </div>
+                <div class="mermaid" id="async-diagram">
+graph TD
+    START(["Start Coroutines"]):::start
+
+    subgraph Gen["Generator Coroutine"]
+        G1["Frame Generator"]:::coro
+        G2["co_yield Frame"]:::yield
+    end
+
+    subgraph Send["Sender Coroutine"]
+        S1["Network Sender"]:::coro
+        S2["co_await Send"]:::await
+    end
+
+    subgraph Recv["Receiver Coroutine"]
+        R1["Network Receiver"]:::coro
+        R2["co_await Receive"]:::await
+    end
+
+    subgraph Render["Render Coroutine"]
+        R3["Frame Renderer"]:::coro
+        R4["co_await Frame"]:::await
+    end
+
+    START --> G1
+    G1 --> G2
+    G2 --> S1
+    S1 --> S2
+    S2 --> R1
+    R1 --> R2
+    R2 --> R3
+    R3 --> R4
+    R4 -->|Next Frame| G1
+
+    classDef start fill:#28a745,stroke:#1e7e34,color:#fff
+    classDef coro fill:#667eea,stroke:#5a6fd6,color:#fff
+    classDef yield fill:#ffc107,stroke:#e0a800,color:#000
+    classDef await fill:#17a2b8,stroke:#138496,color:#fff
+                </div>
+            </div>
+        </div>
+
+        <!-- Network Tab -->
+        <div class="tab-content" id="network">
+            <h2>Network Layer</h2>
+            <p>The network layer provides UDP socket abstraction, RTP protocol implementation, and RTSP signaling support for video streaming.</p>
+
+            <h3>Protocol Stack</h3>
+            <div class="diagram-container">
+                <div class="scale-controls">
+                    <button class="scale-btn" data-scale-delta="-10">−</button>
+                    <div class="scale-display" id="network-scale">100%</div>
+                    <button class="scale-btn" data-scale-delta="10">+</button>
+                    <button class="scale-btn" data-reset-scale="">⟲</button>
+                </div>
+                <div class="mermaid" id="network-diagram">
+graph TD
+    subgraph AppLayer["Application Layer"]
+        A["Video Sender"]:::app
+        B["Video Receiver"]:::app
+    end
+
+    subgraph SessionLayer["Session Layer"]
+        C["RTSP Client"]:::session
+        D["RTSP Server"]:::session
+        E["Session Manager"]:::session
+    end
+
+    subgraph TransportLayer["Transport Layer"]
+        F["RTP Packetizer"]:::transport
+        G["RTP Depacketizer"]:::transport
+        H["RTCP Handler"]:::transport
+    end
+
+    subgraph NetworkLayer["Network Layer"]
+        I["UDP Socket"]:::network
+        J["Endpoint Manager"]:::network
+    end
+
+    A --> C
+    B --> D
+    C --> E
+    D --> E
+    E --> F
+    E --> G
+    F --> H
+    G --> H
+    H --> I
+    F --> I
+    G --> I
+    I --> J
+
+    classDef app fill:#28a745,stroke:#1e7e34,color:#fff
+    classDef session fill:#667eea,stroke:#5a6fd6,color:#fff
+    classDef transport fill:#ffc107,stroke:#e0a800,color:#000
+    classDef network fill:#dc3545,stroke:#c82333,color:#fff
+                </div>
+            </div>
+
+            <h3>RTP Packet Structure</h3>
+            <table>
+                <tr><th>Field</th><th>Size</th><th>Description</th></tr>
+                <tr><td>Version</td><td>2 bits</td><td>RTP version (2)</td></tr>
+                <tr><td>Padding</td><td>1 bit</td><td>Padding flag</td></tr>
+                <tr><td>Extension</td><td>1 bit</td><td>Extension header present</td></tr>
+                <tr><td>CSRC Count</td><td>4 bits</td><td>Number of CSRC identifiers</td></tr>
+                <tr><td>Marker</td><td>1 bit</td><td>Frame boundary marker</td></tr>
+                <tr><td>Payload Type</td><td>7 bits</td><td>H264 = 96 (dynamic)</td></tr>
+                <tr><td>Sequence Number</td><td>16 bits</td><td>Packet sequence</td></tr>
+                <tr><td>Timestamp</td><td>32 bits</td><td>Presentation timestamp</td></tr>
+                <tr><td>SSRC</td><td>32 bits</td><td>Synchronization source</td></tr>
+                <tr><td>Payload</td><td>Variable</td><td>H264 NAL unit data</td></tr>
+            </table>
+
+            <h3>H264 Packetization Modes</h3>
+            <div class="diagram-container">
+                <div class="scale-controls">
+                    <button class="scale-btn" data-scale-delta="-10">−</button>
+                    <div class="scale-display" id="packet-scale">100%</div>
+                    <button class="scale-btn" data-scale-delta="10">+</button>
+                    <button class="scale-btn" data-reset-scale="">⟲</button>
+                </div>
+                <div class="mermaid" id="packet-diagram">
+graph TD
+    A["NAL Unit from Encoder"]:::input
+
+    B{"Size Check"}:::decision
+
+    C["Single NAL Unit Packet"]:::packet
+    D["Fragmentation Unit FU-A"]:::packet
+
+    E["MTU Threshold"]:::param
+
+    A --> B
+    E --> B
+
+    B -->|Less than MTU| C
+    B -->|Exceeds MTU| D
+
+    D --> F["FU-A Header"]:::header
+    D --> G["Fragment 1"]:::frag
+    D --> H["Fragment 2"]:::frag
+    D --> I["Fragment N"]:::frag
+
+    F --> G
+    G --> H
+    H --> I
+
+    classDef input fill:#28a745,stroke:#1e7e34,color:#fff
+    classDef decision fill:#ffc107,stroke:#e0a800,color:#000
+    classDef packet fill:#667eea,stroke:#5a6fd6,color:#fff
+    classDef param fill:#6c757d,stroke:#5a6268,color:#fff
+    classDef header fill:#17a2b8,stroke:#138496,color:#fff
+    classDef frag fill:#764ba2,stroke:#6a4190,color:#fff
+                </div>
+            </div>
+
+            <h3>Network Simulation</h3>
+            <table>
+                <tr><th>Parameter</th><th>Default</th><th>Range</th><th>Effect</th></tr>
+                <tr><td>Packet Loss</td><td>0%</td><td>0-20%</td><td>Random packet dropping</td></tr>
+                <tr><td>Delay</td><td>0ms</td><td>0-500ms</td><td>Fixed latency addition</td></tr>
+                <tr><td>Jitter</td><td>0ms</td><td>0-100ms</td><td>Variable delay</td></tr>
+            </table>
+        </div>
+
+        <!-- Video Tab -->
+        <div class="tab-content" id="video">
+            <h2>Video Processing</h2>
+            <p>The video layer handles frame management, H264 encoding/decoding via FFmpeg, and jitter buffering for smooth playback under network variations.</p>
+
+            <h3>Video Pipeline Components</h3>
+            <div class="diagram-container">
+                <div class="scale-controls">
+                    <button class="scale-btn" data-scale-delta="-10">−</button>
+                    <div class="scale-display" id="video-scale">100%</div>
+                    <button class="scale-btn" data-scale-delta="10">+</button>
+                    <button class="scale-btn" data-reset-scale="">⟲</button>
+                </div>
+                <div class="mermaid" id="video-diagram">
+graph TD
+    subgraph Source["Frame Sources"]
+        A["Synthetic Generator"]:::source
+        B["FFmpeg Decoder"]:::source
+        C["Camera Capture"]:::source
+    end
+
+    subgraph Processing["Processing"]
+        D["Frame Buffer"]:::buffer
+        E["H264 Encoder"]:::encoder
+        F["Rate Controller"]:::control
+    end
+
+    subgraph Network["Network Adaptation"]
+        G["Jitter Buffer"]:::jitter
+        H["Packet Loss Concealment"]:::plc
+        I["Frame Reordering"]:::reorder
+    end
+
+    subgraph Output["Output"]
+        J["H264 Decoder"]:::decoder
+        K["SDL Renderer"]:::render
+        L["FFmpeg Output"]:::output
+    end
+
+    A --> D
+    B --> D
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+    G --> H
+    H --> I
+    I --> J
+    J --> K
+    J --> L
+
+    classDef source fill:#28a745,stroke:#1e7e34,color:#fff
+    classDef buffer fill:#6c757d,stroke:#5a6268,color:#fff
+    classDef encoder fill:#667eea,stroke:#5a6fd6,color:#fff
+    classDef control fill:#ffc107,stroke:#e0a800,color:#000
+    classDef jitter fill:#17a2b8,stroke:#138496,color:#fff
+    classDef plc fill:#dc3545,stroke:#c82333,color:#fff
+    classDef reorder fill:#764ba2,stroke:#6a4190,color:#fff
+    classDef decoder fill:#667eea,stroke:#5a6fd6,color:#fff
+    classDef render fill:#28a745,stroke:#1e7e34,color:#fff
+    classDef output fill:#28a745,stroke:#1e7e34,color:#fff
+                </div>
+            </div>
+
+            <h3>Jitter Buffer Algorithm</h3>
+            <div class="diagram-container">
+                <div class="scale-controls">
+                    <button class="scale-btn" data-scale-delta="-10">−</button>
+                    <div class="scale-display" id="jitter-scale">100%</div>
+                    <button class="scale-btn" data-scale-delta="10">+</button>
+                    <button class="scale-btn" data-reset-scale="">⟲</button>
+                </div>
+                <div class="mermaid" id="jitter-diagram">
+graph LR
+    A["Incoming Packet"]:::input
+    B{"Sequence Check"}:::check
+    C["Insert into Buffer"]:::insert
+    D["Update Expected Seq"]:::update
+    E["Detect Gap"]:::gap
+    F["Request Retransmit"]:::nack
+    G["Wait for Buffer Fill"]:::wait
+    H["Pop Ordered Packet"]:::pop
+    I["Deliver to Decoder"]:::output
+
+    A --> B
+    B -->|In order| C
+    B -->|Out of order| E
+    C --> D
+    D --> G
+    E --> F
+    F --> G
+    G -->|Min depth reached| H
+    H --> I
+
+    classDef input fill:#28a745,stroke:#1e7e34,color:#fff
+    classDef check fill:#ffc107,stroke:#e0a800,color:#000
+    classDef insert fill:#667eea,stroke:#5a6fd6,color:#fff
+    classDef update fill:#6c757d,stroke:#5a6268,color:#fff
+    classDef gap fill:#dc3545,stroke:#c82333,color:#fff
+    classDef nack fill:#17a2b8,stroke:#138496,color:#fff
+    classDef wait fill:#764ba2,stroke:#6a4190,color:#fff
+    classDef pop fill:#667eea,stroke:#5a6fd6,color:#fff
+    classDef output fill:#28a745,stroke:#1e7e34,color:#fff
+                </div>
+            </div>
+
+            <h3>Encoder Configuration</h3>
+            <table>
+                <tr><th>Parameter</th><th>Default</th><th>Options</th><th>Description</th></tr>
+                <tr><td>Codec</td><td>H264</td><td>H264, H265</td><td>Video codec</td></tr>
+                <tr><td>Resolution</td><td>640x480</td><td>Configurable</td><td>Frame dimensions</td></tr>
+                <tr><td>FPS</td><td>30</td><td>1-60</td><td>Frames per second</td></tr>
+                <tr><td>Bitrate</td><td>2 Mbps</td><td>Adaptive</td><td>Target bitrate</td></tr>
+                <tr><td>Keyframe Interval</td><td>2s</td><td>Configurable</td><td>GOP size</td></tr>
+            </table>
+
+            <h3>Frame Lifecycle</h3>
+            <div class="diagram-container">
+                <div class="scale-controls">
+                    <button class="scale-btn" data-scale-delta="-10">−</button>
+                    <div class="scale-display" id="frame-scale">100%</div>
+                    <button class="scale-btn" data-scale-delta="10">+</button>
+                    <button class="scale-btn" data-reset-scale="">⟲</button>
+                </div>
+                <div class="mermaid" id="frame-diagram">
+sequenceDiagram
+    participant Src as Source
+    participant Frame as Frame Object
+    participant Enc as Encoder
+    participant RTP as RTP
+    participant Net as Network
+    participant Dec as Decoder
+    participant Disp as Display
+
+    Src->>Frame: Allocate YUV buffer
+    Src->>Frame: Fill pixel data
+    Src->>Frame: Set timestamp
+
+    Frame->>Enc: Submit for encoding
+    Enc->>Enc: Convert to NV12
+    Enc->>Enc: H264 encode
+    Enc->>RTP: Output NAL units
+
+    RTP->>Net: Packetize & send
+    Net->>RTP: Receive packets
+    RTP->>Dec: Reassemble NAL
+
+    Dec->>Dec: H264 decode
+    Dec->>Dec: Convert to RGB
+    Dec->>Disp: Render frame
+
+    Disp-->>Frame: Release reference
+                </div>
+            </div>
+        </div>
+
+        <!-- Build Tab -->
+        <div class="tab-content" id="build">
+            <h2>Build & Deployment</h2>
+            <p>The project uses CMake with C++20 modules support, vcpkg for dependency management, and Docker for containerized testing.</p>
+
+            <h3>Build Pipeline</h3>
+            <div class="diagram-container">
+                <div class="scale-controls">
+                    <button class="scale-btn" data-scale-delta="-10">−</button>
+                    <div class="scale-display" id="build-scale">100%</div>
+                    <button class="scale-btn" data-scale-delta="10">+</button>
+                    <button class="scale-btn" data-reset-scale="">⟲</button>
+                </div>
+                <div class="mermaid" id="build-diagram">
+graph LR
+    A["Source Code"]:::source
+    B["CMake Configure"]:::configure
+    C["Module Scan"]:::scan
+    D["Compile Modules"]:::compile
+    E["Link Executables"]:::link
+    F["Run Tests"]:::test
+    G["Package"]:::package
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F -->|Pass| G
+    F -->|Fail| A
+
+    subgraph Deps["Dependencies"]
+        H["vcpkg install"]:::deps
+        I["FFmpeg"]:::lib
+        J["SDL2"]:::lib
+        K["Catch2"]:::lib
+    end
+
+    H --> I
+    H --> J
+    H --> K
+    I --> B
+    J --> B
+    K --> B
+
+    classDef source fill:#28a745,stroke:#1e7e34,color:#fff
+    classDef configure fill:#667eea,stroke:#5a6fd6,color:#fff
+    classDef scan fill:#ffc107,stroke:#e0a800,color:#000
+    classDef compile fill:#17a2b8,stroke:#138496,color:#fff
+    classDef link fill:#764ba2,stroke:#6a4190,color:#fff
+    classDef test fill:#dc3545,stroke:#c82333,color:#fff
+    classDef package fill:#28a745,stroke:#1e7e34,color:#fff
+    classDef deps fill:#6c757d,stroke:#5a6268,color:#fff
+    classDef lib fill:#667eea,stroke:#5a6fd6,color:#fff
+                </div>
+            </div>
+
+            <h3>Build Commands</h3>
+            <table>
+                <tr><th>Step</th><th>Command</th><th>Description</th></tr>
+                <tr><td>Configure</td><td>cmake -S . -B build -DBUILD_TESTING=1</td><td>Generate build files with tests enabled</td></tr>
+                <tr><td>Build</td><td>cmake --build build --parallel</td><td>Compile all targets using all cores</td></tr>
+                <tr><td>Test</td><td>./build/video_streaming_tests</td><td>Run Catch2 test suite</td></tr>
+                <tr><td>Demo</td><td>./demo.sh --mode rtsp</td><td>Run RTSP demo with network simulation</td></tr>
+                <tr><td>Visual</td><td>./build/visual_demo --loss 5</td><td>Run SDL visual demo with 5% loss</td></tr>
+            </table>
+
+            <h3>CI/CD Pipeline</h3>
+            <div class="diagram-container">
+                <div class="scale-controls">
+                    <button class="scale-btn" data-scale-delta="-10">−</button>
+                    <div class="scale-display" id="ci-scale">100%</div>
+                    <button class="scale-btn" data-scale-delta="10">+</button>
+                    <button class="scale-btn" data-reset-scale="">⟲</button>
+                </div>
+                <div class="mermaid" id="ci-diagram">
+graph LR
+    A["Git Push"]:::trigger
+    B["GitHub Actions"]:::ci
+    C["Build Matrix"]:::matrix
+    D["Linux GCC"]:::platform
+    E["Linux Clang"]:::platform
+    F["Windows MSVC"]:::platform
+
+    G["CMake Configure"]:::build
+    H["Compile Modules"]:::build
+    I["Run Tests"]:::test
+
+    J{"All Pass"}:::gate
+    K["Deploy Docs"]:::deploy
+    L["Create Release"]:::release
+
+    A --> B
+    B --> C
+    C --> D
+    C --> E
+    C --> F
+
+    D --> G
+    E --> G
+    F --> G
+    G --> H
+    H --> I
+    I --> J
+    J -->|Yes| K
+    J -->|Yes| L
+    J -->|No| A
+
+    classDef trigger fill:#ffc107,stroke:#e0a800,color:#000
+    classDef ci fill:#667eea,stroke:#5a6fd6,color:#fff
+    classDef matrix fill:#17a2b8,stroke:#138496,color:#fff
+    classDef platform fill:#6c757d,stroke:#5a6268,color:#fff
+    classDef build fill:#28a745,stroke:#1e7e34,color:#fff
+    classDef test fill:#764ba2,stroke:#6a4190,color:#fff
+    classDef gate fill:#ffc107,stroke:#e0a800,color:#000
+    classDef deploy fill:#28a745,stroke:#1e7e34,color:#fff
+    classDef release fill:#28a745,stroke:#1e7e34,color:#fff
+                </div>
+            </div>
+
+            <h3>Test Configuration</h3>
+            <table>
+                <tr><th>Test Suite</th><th>File</th><th>Description</th></tr>
+                <tr><td>Integration</td><td>test_integration.cpp</td><td>End-to-end streaming tests</td></tr>
+                <tr><td>Interfaces</td><td>test_interfaces.cpp</td><td>Module interface validation</td></tr>
+                <tr><td>Logger</td><td>test_logger.cpp</td><td>Logging system tests</td></tr>
+                <tr><td>Pipeline</td><td>test_pipeline.cpp</td><td>Pipeline orchestration tests</td></tr>
+                <tr><td>Real Video</td><td>test_real_video_streaming.cpp</td><td>FFmpeg integration tests</td></tr>
+            </table>
+
+            <div class="feature-section">
+                <h3>Docker Testing</h3>
+                <ul class="feature-list">
+                    <li>Containerized network simulation with TC (traffic control)</li>
+                    <li>FFmpeg container for stream validation</li>
+                    <li>Docker Compose for multi-container scenarios</li>
+                    <li>Automated packet loss and delay injection</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="mermaid-height-util.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            await mermaid.initialize({
+                startOnLoad: false,
+                theme: 'default',
+                themeVariables: {
+                    primaryColor: '#667eea',
+                    primaryTextColor: '#333',
+                    lineColor: '#667eea',
+                    secondaryColor: '#764ba2',
+                    fontSize: '14px'
+                },
+                flowchart: { useMaxWidth: false, htmlLabels: true }
+            });
+
+            const adjuster = new MermaidHeightAdjuster();
+            adjuster.setupTabSwitching();
+            adjuster.setupScaleControls();
+
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.addEventListener('click', async function() {
+                    const tabId = this.dataset.tab;
+
+                    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+                    this.classList.add('active');
+                    document.getElementById(tabId).classList.add('active');
+
+                    setTimeout(async () => {
+                        const diagram = document.querySelector(`#${tabId} .mermaid`);
+                        if (diagram && !diagram.dataset.rendered) {
+                            await mermaid.run({ querySelector: `#${tabId} .mermaid` });
+                            diagram.dataset.rendered = 'true';
+                            adjuster.adjustDiagram(diagram.closest('.diagram-container'));
+                        }
+                    }, 100);
+                });
+            });
+
+            setTimeout(async () => {
+                const firstDiagram = document.querySelector('#overview .mermaid');
+                if (firstDiagram) {
+                    await mermaid.run({ querySelector: '#overview .mermaid' });
+                    firstDiagram.dataset.rendered = 'true';
+                    adjuster.adjustDiagram(firstDiagram.closest('.diagram-container'));
+                }
+            }, 100);
+        });
+    </script>
+</body>
+</html>
